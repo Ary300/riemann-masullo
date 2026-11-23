@@ -17,6 +17,8 @@ import all RiemannMasullo.AppD_SchwartzBruhat.Sec1c
 import all RiemannMasullo.AppD_SchwartzBruhat.Sec1b
 import all RiemannMasullo.AppD_SchwartzBruhat.Sec3a_part2
 import all RiemannMasullo.Ch02_AdelicTheta.Sec1
+import RiemannMasullo.Ch03_IdelicZeta.Sec3b
+import Mathlib.NumberTheory.NumberField.Cyclotomic.Embeddings
 import Mathlib.Analysis.Calculus.InverseFunctionTheorem.ContDiff
 import Mathlib.Analysis.Meromorphic.RCLike
 import Mathlib.Analysis.SpecialFunctions.Complex.LogDeriv
@@ -4479,6 +4481,46 @@ theorem realArchimedeanMellin_monomial (n : ℕ) (ε : Fin 2) (f : 𝓢(ℝ, ℂ
   rw [hprofile]
   exact ⟨MellinConvergent.cpow_smul.mpr h.1, (mellin_cpow_smul _ s n).trans h.2⟩
 
+/-- Continue a Fourier–Mellin identity from the fundamental strip, then translate the exponent.
+Here `G` is the archimedean gamma factor, `a` its shift and `ε` the Fourier phase. -/
+private theorem archimedeanMellin_translate_strip_identity {L D G : ℂ → ℂ}
+    (hL : Meromorphic L) (hD : Meromorphic D) (hG : Meromorphic G) (ε a d : ℂ)
+    (hstrip : ∀ z : ℂ, z.re ∈ Ioo (0 : ℝ) 1 →
+      L z = ε * (G (z + a) / G (1 - z + a)) * D (1 - z)) :
+    ∀ᶠ s : ℂ in codiscrete ℂ, L (s + d) =
+      ε * (G ((s + d) + a) / G (1 - (s + d) + a)) * D (1 - (s + d)) := by
+  have hR : Meromorphic (fun z : ℂ ↦ ε * (G (z + a) / G (1 - z + a)) * D (1 - z)) := fun z ↦
+    ((MeromorphicAt.const ε z).mul
+      (((hG _).comp_analyticAt (g := fun t : ℂ ↦ t + a) (by fun_prop)).div
+        ((hG _).comp_analyticAt (g := fun t : ℂ ↦ 1 - t + a) (by fun_prop)))).mul
+      ((hD _).comp_analyticAt (g := fun t : ℂ ↦ 1 - t) (by fun_prop))
+  have hmid : ∀ᶠ z : ℂ in 𝓝[≠] (1 / 2 : ℂ), z.re ∈ Ioo (0 : ℝ) 1 :=
+    nhdsWithin_le_nhds ((isOpen_Ioo.preimage Complex.continuous_re).mem_nhds
+      (by norm_num [mem_preimage, mem_Ioo]))
+  have hdiff : Meromorphic (L - fun z ↦ ε * (G (z + a) / G (1 - z + a)) * D (1 - z)) :=
+    fun z ↦ (hL z).sub (hR z)
+  have hzero := hdiff.exists_meromorphicOrderAt_eq_top_iff_eventually_zero.mp
+    ⟨(1 / 2 : ℂ), meromorphicOrderAt_eq_top_iff.mpr
+      (hmid.mono fun z hz ↦ sub_eq_zero.mpr (hstrip z hz))⟩
+  apply eventually_codiscrete_iff_forall_eventually_nhdsNE.mpr
+  intro x
+  have ht : Tendsto (fun z : ℂ ↦ z + d) (𝓝[≠] x) (𝓝[≠] (x + d)) :=
+    ((Homeomorph.addRight d).map_punctured_nhds_eq x).le
+  have heq : L =ᶠ[codiscrete ℂ] fun z ↦ ε * (G (z + a) / G (1 - z + a)) * D (1 - z) :=
+    hzero.mono fun _ h ↦ sub_eq_zero.mp h
+  exact ht.eventually (heq.filter_mono (nhdsNE_le_codiscrete (x + d)))
+
+/-- On the fundamental strip the real Tate factor has the phase and gamma quotient
+of (5.3.3.24), for the ordinary Euclidean Fourier transform. -/
+private theorem realArchimedeanMellin_fourier_strip {F : Type*} [Field F] [NumberField F]
+    (w : InfinitePlace F) (hw : w.IsReal) (f : 𝓢(ℝ, ℂ)) (a : Fin 2)
+    (z : ℂ) (hz : z.re ∈ Ioo (0 : ℝ) 1) :
+    realArchimedeanMellin f a z = rhoReal(a, z) * realArchimedeanMellin (𝓕 f) a (1 - z) := by
+  have hdz : 0 < (1 - z).re := by simpa using sub_pos.mpr hz.2
+  rw [realArchimedeanMellin_eq_integral f a z hz.1,
+    realArchimedeanMellin_eq_integral (𝓕 f) a (1 - z) hdz]
+  exact realLocalTate_mellin_fourier w hw f a z hz
+
 /-- Paper: Proposition 5.3.3.4(1), p. 258.
 The real monomial Mellin transform satisfies the Fourier relation at the shifted
 exponent and parity. The product is understood as a meromorphic identity. -/
@@ -4487,7 +4529,17 @@ theorem realArchimedeanMellin_monomial_functionalEquation (n : ℕ) (ε : Fin 2)
       let a := shiftParity(ε, n)
       let t := s + (n : ℂ)
       realArchimedeanMellin (realMonomial(n) f) ε s =
-        rhoReal(a, t) * realArchimedeanMellin (𝓕 f) a (1 - t) := by sorry
+        rhoReal(a, t) * realArchimedeanMellin (𝓕 f) a (1 - t) := by
+  let a := shiftParity(ε, n)
+  have hM (g : 𝓢(ℝ, ℂ)) : Meromorphic (realArchimedeanMellin g a) :=
+    meromorphicOn_univ.mp (realArchimedeanMellin_existsUnique g a).exists.choose_spec.1.meromorphicOn
+  have hG : Meromorphic Complex.Gammaℝ := fun z ↦
+    (MeromorphicAt.inv_iff (f := Complex.Gammaℝ)).mp
+      (Complex.differentiable_Gammaℝ_inv.analyticAt z).meromorphicAt
+  rw [realArchimedeanMellin_monomial]
+  exact archimedeanMellin_translate_strip_identity (hM f) (hM (𝓕 f)) hG
+    (Complex.I ^ a.val) a.val n
+    (realArchimedeanMellin_fourier_strip Rat.infinitePlace Rat.isReal_infinitePlace f a)
 
 /-- Paper: Proposition 5.3.3.4(2), p. 258.
 Multiplying by zᵖ times the qth power of its conjugate shifts the Mellin exponent
@@ -4561,6 +4613,20 @@ theorem complexArchimedeanMellin_monomial (p q : ℕ) (n : ℤ) (f : 𝓢(ℂ, �
 -- TODO(paper-gap): The complex phase in (5.3.3.25) disagrees with the trace-pairing Fourier
 -- transform for nontrivial angular weights. Use the phase from §3.3, per ERRATA I91.
 
+/-- The local Tate equation on the fundamental strip uses the trace-pairing Fourier transform
+and reverses the angular weight. -/
+private theorem complexArchimedeanMellin_fourier_strip {F : Type*} [Field F] [NumberField F]
+    (w : InfinitePlace F) (hw : w.IsComplex) (f fHat : 𝓢(ℂ, ℂ))
+    (hfHat : ∀ x : ℂ, fHat x = 2 * (𝓕 f) (2 * star x)) (k : ℤ)
+    (z : ℂ) (hz : z.re ∈ Ioo (0 : ℝ) 1) :
+    complexArchimedeanMellin f k z = rhoComplex(k, z) * complexArchimedeanMellin fHat (-k) (1 - z) := by
+  have hdz : 0 < (1 - z).re := by simpa using sub_pos.mpr hz.2
+  rw [complexArchimedeanMellin_eq_integral f k z hz.1,
+    complexArchimedeanMellin_eq_integral fHat (-k) (1 - z) hdz,
+    complexArchimedeanMellin_eq_infiniteLocalIdelicZFunction_change (f : ℂ → ℂ) k z,
+    complexArchimedeanMellin_eq_infiniteLocalIdelicZFunction_change (fHat : ℂ → ℂ) (-k) (1 - z)]
+  exact complexLocalTate_mellin_fourier w hw f fHat hfHat k z hz
+
 /-- Paper: Proposition 5.3.3.4(2), p. 258.
 The complex monomial Mellin transform satisfies the Fourier relation at the shifted
 exponent and angular weight. The trace-pairing transform is the Euclidean Fourier
@@ -4573,7 +4639,29 @@ theorem complexArchimedeanMellin_monomial_functionalEquation (p q : ℕ) (n : �
         let k := n + (p : ℤ) - q
         let t := s + ((p : ℂ) + q) / 2
         complexArchimedeanMellin (complexMonomial(p, q) f) n s =
-          rhoComplex(k, t) * complexArchimedeanMellin fHat (-k) (1 - t) := by sorry
+          rhoComplex(k, t) * complexArchimedeanMellin fHat (-k) (1 - t) := by
+  let k := n + (p : ℤ) - q
+  let D : ℂ ≃L[ℝ] ℂ :=
+    Complex.conjCLE.trans (ContinuousLinearEquiv.smulLeft (Units.mk0 (2 : ℂ) two_ne_zero))
+  let fHat : 𝓢(ℂ, ℂ) := (2 : ℂ) • SchwartzMap.compCLMOfContinuousLinearEquiv ℂ D (𝓕 f)
+  have hfHat (x : ℂ) : fHat x = 2 * (𝓕 f) (2 * star x) := rfl
+  refine ⟨fHat, hfHat, ?_⟩
+  have hM (g : 𝓢(ℂ, ℂ)) (j : ℤ) : Meromorphic (complexArchimedeanMellin g j) :=
+    meromorphicOn_univ.mp (complexArchimedeanMellin_existsUnique g j).exists.choose_spec.1.meromorphicOn
+  have hG : Meromorphic Complex.Gammaℂ := fun z ↦
+    (MeromorphicAt.inv_iff (f := Complex.Gammaℂ)).mp
+      (Complex.differentiable_Gammaℂ_inv.analyticAt z).meromorphicAt
+  -- A complex place of ℚ(i) realizes the complex local Tate equation.
+  let K := CyclotomicField 4 ℚ
+  let w : InfinitePlace K := Classical.choice inferInstance
+  have : @IsCyclotomicExtension {4} ℚ K _ _ DivisionRing.toRatAlgebra := by
+    rw [Subsingleton.elim (DivisionRing.toRatAlgebra : Algebra ℚ K) (CyclotomicField.algebra 4 ℚ)]
+    exact CyclotomicField.isCyclotomicExtension 4 ℚ
+  have hw : w.IsComplex := (IsCyclotomicExtension.Rat.isTotallyComplex K (n := 4) (by decide)).isComplex w
+  rw [complexArchimedeanMellin_monomial]
+  exact archimedeanMellin_translate_strip_identity (hM f k) (hM fHat (-k)) hG
+    (Complex.I ^ k.natAbs) (k.natAbs / 2) (((p : ℂ) + q) / 2)
+    (complexArchimedeanMellin_fourier_strip w hw f fHat hfHat k)
 
 end ArchimedeanMellin
 
