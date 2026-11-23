@@ -702,6 +702,132 @@ theorem spectralNuclearityDenominator_isotypeModel (a : ℝ) :
     rw [hf]
     rfl
 
+private theorem spectralNuclearityDenominator_closed_invariant_mellinAux {X : Type*}
+    [TopologicalSpace X] [MeasurableSpace X] [OpensMeasurableSpace X] (μ : Measure X)
+    [IsFiniteMeasureOnCompacts μ] (φ c : X → ℂ) (n : X → ℝ) (hφ : Continuous φ)
+    (hφc : HasCompactSupport φ) (hc : Continuous c) (hn : Continuous n) (hpos : ∀ x, 0 < n x) :
+    Differentiable ℂ (fun s : ℂ ↦ ∫ x, φ x * (c x * (n x : ℂ) ^ s) ∂μ) ∧
+      ∀ a b : ℝ, ∃ C, ∀ s : ℂ, a ≤ s.re → s.re ≤ b →
+        ‖∫ x, φ x * (c x * (n x : ℂ) ^ s) ∂μ‖ ≤ C := by
+  have hjoint : Continuous (fun p : ℂ × X ↦ ((n p.2 : ℂ)) ^ p.1) :=
+    Continuous.cpow (Complex.continuous_ofReal.comp (hn.comp continuous_snd)) continuous_fst
+      (fun p ↦ Complex.ofReal_mem_slitPlane.2 (hpos p.2))
+  have hφi : Integrable φ μ := hφ.integrable_of_hasCompactSupport hφc
+  have hpow (s : ℂ) : Continuous (fun x ↦ (n x : ℂ) ^ s) :=
+    hjoint.comp (continuous_const.prodMk continuous_id)
+  have hlog : Continuous (fun x ↦ Complex.log (n x : ℂ)) :=
+    Complex.continuous_ofReal.comp (Real.continuousOn_log.comp_continuous hn
+      fun x ↦ (hpos x).ne') |>.congr fun x ↦ Complex.ofReal_log (hpos x).le
+  constructor
+  · intro s₀
+    obtain ⟨C, hC⟩ := ((isCompact_closedBall s₀ 1).prod hφc).exists_bound_of_continuousOn
+      (f := fun p : ℂ × X ↦ c p.2 * ((n p.2 : ℂ) ^ p.1 * Complex.log (n p.2 : ℂ)))
+      ((hc.comp continuous_snd).mul (hjoint.mul (hlog.comp continuous_snd))).continuousOn
+    have key := hasDerivAt_integral_of_dominated_loc_of_deriv_le (μ := μ)
+      (F := fun s x ↦ φ x * (c x * (n x : ℂ) ^ s))
+      (F' := fun s x ↦ φ x * (c x * ((n x : ℂ) ^ s * Complex.log (n x : ℂ))))
+      (x₀ := s₀) (bound := fun x ↦ ‖φ x‖ * C) (Metric.ball_mem_nhds s₀ one_pos)
+      (Filter.Eventually.of_forall fun s ↦ (hφ.mul (hc.mul (hpow s))).aestronglyMeasurable)
+      ((hφ.mul (hc.mul (hpow s₀))).integrable_of_hasCompactSupport hφc.mul_right)
+      (hφ.mul (hc.mul ((hpow s₀).mul hlog))).aestronglyMeasurable
+      (Filter.Eventually.of_forall fun x s hs ↦ by
+        by_cases hx : x ∈ tsupport φ
+        · rw [norm_mul]
+          exact mul_le_mul_of_nonneg_left
+            (hC (s, x) ⟨Metric.ball_subset_closedBall hs, hx⟩) (norm_nonneg _)
+        · simp [image_eq_zero_of_notMem_tsupport hx])
+      (hφi.norm.mul_const C)
+      (Filter.Eventually.of_forall fun x s _ ↦ by
+        have h := (hasDerivAt_id s).const_cpow (c := (n x : ℂ))
+          (Or.inl (Complex.ofReal_ne_zero.2 (hpos x).ne'))
+        simpa only [id, mul_one] using (h.const_mul (c x)).const_mul (φ x))
+    exact key.2.differentiableAt
+  · intro a b
+    obtain ⟨C, hC⟩ := hφc.isCompact.exists_bound_of_continuousOn
+      (f := fun x ↦ ‖c x‖ * (n x ^ a + n x ^ b))
+      ((hc.norm.mul ((hn.rpow_const fun x ↦ Or.inl (hpos x).ne').add
+        (hn.rpow_const fun x ↦ Or.inl (hpos x).ne'))).continuousOn)
+    refine ⟨∫ x, ‖φ x‖ * C ∂μ, fun s ha hb ↦ ?_⟩
+    refine norm_integral_le_of_norm_le (hφi.norm.mul_const C) (Filter.Eventually.of_forall fun x ↦ ?_)
+    by_cases hx : x ∈ tsupport φ
+    · rw [norm_mul, norm_mul, Complex.norm_cpow_eq_rpow_re_of_pos (hpos x)]
+      have hp : n x ^ s.re ≤ n x ^ a + n x ^ b := by
+        rcases le_total 1 (n x) with h1 | h1
+        · exact (Real.rpow_le_rpow_of_exponent_le h1 hb).trans
+            (le_add_of_nonneg_left (Real.rpow_nonneg (hpos x).le _))
+        · exact (Real.rpow_le_rpow_of_exponent_ge (hpos x) h1 ha).trans
+            (le_add_of_nonneg_right (Real.rpow_nonneg (hpos x).le _))
+      have h := hC x hx
+      rw [Real.norm_of_nonneg (mul_nonneg (norm_nonneg _)
+        (add_nonneg (Real.rpow_nonneg (hpos x).le _) (Real.rpow_nonneg (hpos x).le _)))] at h
+      calc ‖φ x‖ * (‖c x‖ * n x ^ s.re) ≤ ‖φ x‖ * (‖c x‖ * (n x ^ a + n x ^ b)) := by gcongr
+        _ ≤ ‖φ x‖ * C := by gcongr
+    · simp [image_eq_zero_of_notMem_tsupport hx]
+
+private theorem spectralNuclearityDenominator_closed_invariant_mellin (χ : U) (φ : 𝒟) :
+    Differentiable ℂ (nuclearityTestMellin χ φ) ∧
+      ∀ a b : ℝ, ∃ C, ∀ s : ℂ, a ≤ s.re → s.re ≤ b → ‖nuclearityTestMellin χ φ s‖ ≤ C := by
+  let : BorelSpace C𝔽 := ⟨rfl⟩
+  let : (ideleClassTamagawaMeasure F).IsHaarMeasure := (ideleClassTamagawaMeasure_isWeil F).1
+  have hc : Continuous φ.val :=
+    continuous_schwartzBruhat (⟨φ.val, bruhatCompactSupport_mem_schwartz φ.property⟩ : SchwartzBruhat C𝔽)
+  have hn : Continuous (fun g : C𝔽 ↦ (((ideleClassNorm F g : ℝ≥0ˣ) : ℝ≥0) : ℝ)) :=
+    NNReal.continuous_coe.comp (Units.continuous_val.comp (isProperMap_ideleClassNorm F).continuous)
+  exact spectralNuclearityDenominator_closed_invariant_mellinAux μ𝔽 φ.val (fun g ↦ (χ g : ℂ))
+    (fun g : C𝔽 ↦ (((ideleClassNorm F g : ℝ≥0ˣ) : ℝ≥0) : ℝ)) hc φ.property.2
+    (continuous_subtype_val.comp χ.continuous) hn
+    (fun g ↦ NNReal.coe_pos.2 (pos_iff_ne_zero.2 (Units.ne_zero _)))
+
+private theorem spectralNuclearityDenominator_closed_invariant_mem (m : ℂ → ℂ)
+    (hm : Differentiable ℂ m)
+    (hb : ∀ a b : ℝ, ∃ C, ∀ s : ℂ, a ≤ s.re → s.re ≤ b → ‖m s‖ ≤ C) (f : ℂ → ℂ)
+    (hf : f ∈ schwartzBergmanSubmodule (univ : Set ℝ)) :
+    (fun s ↦ m s * f s) ∈ schwartzBergmanSubmodule (univ : Set ℝ) := by
+  obtain ⟨-, hd, hbd⟩ := hf
+  refine ⟨fun z hz ↦ absurd (mem_univ _) hz, hm.differentiableOn.mul hd, ?_⟩
+  intro a b hab hI N
+  obtain ⟨A, hA⟩ := hbd a b hab hI N
+  obtain ⟨C, hC⟩ := hb a b
+  refine ⟨max C 0 * A, ?_⟩
+  rintro _ ⟨z, hz, rfl⟩
+  have h1 : ‖z ^ N * f z‖ ≤ A := hA ⟨z, hz, rfl⟩
+  change ‖z ^ N * (m z * f z)‖ ≤ _
+  rw [mul_left_comm, norm_mul]
+  exact mul_le_mul (le_max_of_le_left (hC z hz.1 hz.2)) h1 (norm_nonneg _) (le_max_right _ _)
+
+private theorem spectralNuclearityDenominator_closed_invariant_trace (m f : ℂ → ℂ) (a : ℝ)
+    (N : ℕ) (C : ℝ) (hC : ∀ s : ℂ, s.re = a → ‖m s‖ ≤ C) (hc : Continuous (fun s ↦ m s * f s))
+    (hf : MemLp (weightedVerticalTrace a N f) 2 volume) :
+    (eLpNorm (weightedVerticalTrace a N (fun s ↦ m s * f s)) 2 volume).toReal ≤
+      max C 0 * (eLpNorm (weightedVerticalTrace a N f) 2 volume).toReal := by
+  have hz : Continuous (fun x : ℝ ↦ (a : ℂ) + (x : ℂ) * Complex.I) :=
+    continuous_const.add (Complex.continuous_ofReal.mul continuous_const)
+  have hmeas : AEStronglyMeasurable (weightedVerticalTrace a N (fun s ↦ m s * f s)) volume :=
+    ((hz.pow N).mul (hc.comp hz)).aestronglyMeasurable
+  let c : ℝ≥0 := ⟨max C 0, le_max_right _ _⟩
+  have h := eLpNorm_le_nnreal_smul_eLpNorm_of_ae_le_mul (c := c) hmeas
+    (g := weightedVerticalTrace a N f) (Filter.Eventually.of_forall fun x ↦ by
+      rw [← NNReal.coe_le_coe, NNReal.coe_mul, coe_nnNorm, coe_nnNorm]
+      change ‖((a : ℂ) + (x : ℂ) * Complex.I) ^ N * (m _ * f _)‖ ≤
+        max C 0 * ‖((a : ℂ) + (x : ℂ) * Complex.I) ^ N * f _‖
+      rw [mul_left_comm, norm_mul]
+      exact mul_le_mul_of_nonneg_right (le_max_of_le_left (hC _ (by simp))) (norm_nonneg _)) 2
+  have hne : c • eLpNorm (weightedVerticalTrace a N f) 2 volume ≠ ⊤ :=
+    ENNReal.mul_ne_top ENNReal.coe_ne_top hf.eLpNorm_ne_top
+  refine (ENNReal.toReal_mono hne h).trans_eq ?_
+  rw [ENNReal.toReal_smul, NNReal.smul_def, smul_eq_mul]
+  rfl
+
+private theorem spectralNuclearityDenominator_closed_invariant_cont {X ι : Type*}
+    [AddCommGroup X] [Module ℂ X] (p : SeminormFamily ℂ X ι)
+    (L : WithGeneratingSeminorms X p →ₗ[ℂ] WithGeneratingSeminorms X p)
+    (h : ∀ i, ∃ C : ℝ, 0 ≤ C ∧ ∀ x, p i (L x) ≤ C * p i x) : Continuous L :=
+  WithSeminorms.continuous_of_isBounded (withGeneratingSeminorms_spec X p)
+    (withGeneratingSeminorms_spec X p) L (Seminorm.IsBounded.of_real fun i ↦ by
+      obtain ⟨C, hC0, hC⟩ := h i
+      exact ⟨{i}, C, fun x ↦ (hC x).trans (mul_le_mul_of_nonneg_left
+        (Seminorm.le_def.mp (Finset.le_sup (f := p) (Finset.mem_singleton_self i)) x) hC0)⟩)
+
 /-- Paper: Theorem 7.4.1.1(1), p. 366.
 The twisted theta image is closed. Compactly supported Bruhat tests act by continuous
 Mellin multiplication, which preserves that image. -/
@@ -710,7 +836,31 @@ theorem spectralNuclearityDenominator_closed_invariant (a : ℝ) (φ : 𝒟) :
     IsClosed (D : Set B) ∧
       ∃ A : B →L[ℂ] B,
         (∀ f s, (A f).val s = nuclearityTestMellin χ φ s * f.val s) ∧
-        Set.MapsTo A (D : Set B) D := by sorry
+        Set.MapsTo A (D : Set B) D := by
+  intro D
+  obtain ⟨hMd, hMb⟩ := spectralNuclearityDenominator_closed_invariant_mellin χ φ
+  refine ⟨schwartzBergmanDivisible_isClosed _, ?_⟩
+  let L : B →ₗ[ℂ] B :=
+    { toFun := fun f ↦ ⟨fun s ↦ nuclearityTestMellin χ φ s * f.val s,
+        spectralNuclearityDenominator_closed_invariant_mem _ hMd hMb f.val f.property⟩
+      map_add' := fun f g ↦ Subtype.ext (funext fun s ↦ mul_add _ _ _)
+      map_smul' := fun c f ↦ Subtype.ext (funext fun s ↦ mul_left_comm _ _ _) }
+  have hL : Continuous L := by
+    refine spectralNuclearityDenominator_closed_invariant_cont _ L fun i ↦ ?_
+    obtain ⟨C, hC⟩ := hMb i.1.val i.1.val
+    refine ⟨max C 0, le_max_right _ _, fun f ↦ ?_⟩
+    have hfc : Continuous (f.val : ℂ → ℂ) := continuousOn_univ.mp (f.property.2.1.continuousOn.mono fun _ _ ↦ trivial)
+    exact spectralNuclearityDenominator_closed_invariant_trace _ f.val i.1.val i.2 C
+      (fun s hs ↦ hC s hs.ge hs.le) (hMd.continuous.mul hfc)
+      (schwartzBergman_trace_memLp _ i.1 2 (by norm_num) (by norm_num) i.2 f)
+  refine ⟨⟨L, hL⟩, fun f s ↦ rfl, ?_⟩
+  intro f hf
+  obtain ⟨u, hu, h⟩ := (specDenom_mem_D χ τ hτ a f).mp hf
+  refine (specDenom_mem_D χ τ hτ a _).mpr ⟨fun s ↦ nuclearityTestMellin χ φ s * u s, hMd.mul hu,
+    fun s ↦ ?_⟩
+  change nuclearityTestMellin χ φ s * f.val s = _
+  rw [h s]
+  ring
 
 local notation "zeros(" χ ", " τ ", " hτ ")" =>
   {z : ℂ // 0 < analyticOrderAt ((Λ(χ, τ, hτ)).val : ℂ → ℂ) z}
@@ -721,6 +871,41 @@ local notation "jets(" χ ", " τ ", " hτ ")" =>
 local notation "Q(" a ")" => SpectralNuclearityQuotient χ τ hτ a
 local notation "D(" a ")" => spectralNuclearityDenominator χ τ hτ a
 
+private theorem exists_spectralNuclearityBiorthogonal_vanish (G u f : ℂ → ℂ)
+    (hG : Differentiable ℂ G) (hu : Differentiable ℂ u) (a : ℂ)
+    (hf : ∀ s, f s = G (s + a) * u s) (z : ℂ) (k : ℕ)
+    (hk : k < (analyticOrderAt G z).toNat) : iteratedDeriv k f (z - a) = 0 := by
+  have hg : AnalyticAt ℂ (fun s ↦ s + a) (z - a) := by fun_prop
+  have hd : deriv (fun s ↦ s + a) (z - a) ≠ 0 := by simp
+  have hcomp : analyticOrderAt (G ∘ fun s ↦ s + a) (z - a) = analyticOrderAt G z := by
+    rw [analyticOrderAt_comp_of_deriv_ne_zero hg hd, sub_add_cancel]
+  have hfe : f = (G ∘ fun s ↦ s + a) * u := funext fun s ↦ hf s
+  have hGa : AnalyticAt ℂ (G ∘ fun s ↦ s + a) (z - a) :=
+    (hG.comp (differentiable_id.add_const a)).analyticAt _
+  have hua : AnalyticAt ℂ u (z - a) := hu.analyticAt _
+  have hord : analyticOrderAt f (z - a) =
+      analyticOrderAt G z + analyticOrderAt u (z - a) := by
+    rw [hfe, analyticOrderAt_mul hGa hua, hcomp]
+  have hle : ((k + 1 : ℕ) : ℕ∞) ≤ analyticOrderAt f (z - a) := by
+    rw [hord]
+    refine le_trans ?_ le_self_add
+    cases h : analyticOrderAt G z with
+    | top => exact le_top
+    | coe n =>
+      rw [h] at hk
+      exact_mod_cast (show k + 1 ≤ n by simpa using hk)
+  have hfa : AnalyticAt ℂ f (z - a) := by rw [hfe]; exact hGa.mul hua
+  exact (natCast_le_analyticOrderAt_iff_iteratedDeriv_eq_zero hfa).mp hle k (Nat.lt_succ_self k)
+
+open Classical in
+/-- Paper: Theorem 7.4.1.1(2), p. 366, using Theorem 7.1.4.2(3).
+For each jet index there is a Schwartz–Bergman function whose derivative jets at the
+shifted zeros of the regularized completed generator are the corresponding coordinate vector:
+the `i.2`-th derivative at `i.1 − a` is `1` for `i = j` and `0` for every other jet index. -/
+theorem exists_spectralNuclearityBiorthogonal_vectors (a : ℝ) (j : jets(χ, τ, hτ)) :
+    ∃ f : B, ∀ i : jets(χ, τ, hτ),
+      iteratedDeriv i.2.val f.val (i.1.val - (a : ℂ)) = if i = j then 1 else 0 := by sorry
+
 open Classical in
 /-- Paper: Theorem 7.4.1.1(2), p. 366, using Theorem 7.1.4.2(3).
 The jet functionals and their full biorthogonal families transport to the shifted
@@ -728,7 +913,21 @@ quotient. A zero z of the unshifted generator has its jets at z − a. -/
 theorem exists_spectralNuclearityBiorthogonal (a : ℝ) :
     ∃ (d : jets(χ, τ, hτ) → StrongDual ℂ (Q(a))) (b : jets(χ, τ, hτ) → Q(a)),
       (∀ i f, d i ((D(a)).mkQ f) = iteratedDeriv i.2.val f.val (i.1.val - (a : ℂ))) ∧
-      ∀ i j, d i (b j) = if i = j then 1 else 0 := by sorry
+      ∀ i j, d i (b j) = if i = j then 1 else 0 := by
+  choose b hb using exists_spectralNuclearityBiorthogonal_vectors χ τ hτ a
+  let J : jets(χ, τ, hτ) → B →L[ℂ] ℂ := fun i ↦
+    (entireJet (i.1.val - (a : ℂ)) i.2.val).comp schwartzBergmanEntireInclusion
+  have hJv (i : jets(χ, τ, hτ)) (f : B) :
+      J i f = iteratedDeriv i.2.val f.val (i.1.val - (a : ℂ)) :=
+    congrArg (fun g ↦ iteratedDeriv i.2.val g (i.1.val - (a : ℂ)))
+      (funext (schwartzBergmanEntireInclusion_apply f))
+  have hJ (i : jets(χ, τ, hτ)) : D(a) ≤ (J i).ker := fun f hf ↦ by
+    obtain ⟨u, hu, h⟩ := (specDenom_mem_D χ τ hτ a f).mp hf
+    refine LinearMap.mem_ker.mpr ((hJv i f).trans ?_)
+    exact exists_spectralNuclearityBiorthogonal_vanish _ u f.val (Λ(χ, τ, hτ)).property hu
+      (a : ℂ) h i.1.val i.2.val i.2.isLt
+  refine ⟨fun i ↦ (D(a)).liftQL (J i) (hJ i), fun j ↦ (D(a)).mkQ (b j),
+    fun i f ↦ hJv i f, fun i j ↦ (hJv i (b j)).trans (hb j i)⟩
 
 -- TODO(paper-gap): The proof on p. 367 gives no uniform boundedness estimate for
 -- the rescaled biorthogonal vectors. Discreteness does not control zero counts,
