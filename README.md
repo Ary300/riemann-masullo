@@ -79,7 +79,9 @@ have learned about doing this quickly.
 
 ## Status
 
-**Active: every statement is in Lean; proving and refuting.** As of 22 November 2026, about 6,800
+**Active: the first pass is complete, and supporting material is being added.** Every statement
+that the trace formula and the target theorems rest on is in Lean (waves 1 to 3 below); the work
+on them now is proving and refuting. As of 22 November 2026, about 6,800
 theorems and 1,290 definitions are stated in Lean and about 6,100 of the theorems are proved.
 Some thirty people have had pull requests merged, about 1,580 pull requests in all.
 
@@ -91,6 +93,9 @@ Some thirty people have had pull requests merged, about 1,580 pull requests in a
   stated as well, reviewed in the same way; the last section landed on 22 November. §12.3 is
   a heading in the paper with a note to include the section, so there is nothing to state
   there. Chapter 8 is not needed for these statements.
+- **Supporting material** (Chapters 8 and 14, Appendix E, §A.4 and §B.7) was left out of the
+  first pass. It is being stated now, from 23 November, in the same way: definitions and
+  statements first, each reviewed against the paper before it is merged.
 
 Every open `sorry` is an issue that anyone can take. The
 [progress map](https://claude.ai/artifact/CtQyX8qfYAF822bgHJHHE3) has the current numbers, and
@@ -189,9 +194,9 @@ trace formula:
 | Wave | Paper | Status |
 |---|---|---|
 | 1 | Appendices A.1–A.3, A.5, C, D; then Chapters 2–3 (adelic θ-functions, idelic zeta functions) and, independently, Chapters 4 and 9 (periodic Schauder bases, Hardy–Sobolev spaces) | all stated; most proofs done, the rest being closed out file by file: [open proof issues](https://github.com/mccorvie/riemann-masullo/issues?q=is%3Aissue+is%3Aopen+label%3Aproof+-label%3Aclaimed) |
-| 2 | Chapters 5–7, with Appendix B.1–B.6 | Appendix B.1–B.6, §5.1–5.3, §6.1–6.2 and §7.1 stated, proofs open; the remaining [section issues](https://github.com/mccorvie/riemann-masullo/issues?q=is%3Aissue+is%3Aopen+label%3Asection) (§5.4–5.5, §6.3, §7.2–7.5) are being stated in dependency order |
-| 3 | Chapters 10–12: the trace formula; then Chapter 13 | seeded as [section issues](https://github.com/mccorvie/riemann-masullo/issues?q=is%3Aissue+is%3Aopen+label%3Asection); statements in progress, in dependency order |
-| later | Chapters 8 and 14, Appendix E, A.4, B.7 | only when something needs them |
+| 2 | Chapters 5–7, with Appendix B.1–B.6 | all stated; proofs open |
+| 3 | Chapters 10–12: the trace formula; then Chapter 13 | all stated (the last section on 22 November); proofs open |
+| supporting material | Chapters 8 and 14, Appendix E, §A.4, §B.7 | being stated now, as [section issues](https://github.com/mccorvie/riemann-masullo/issues?q=is%3Aissue+is%3Aopen+label%3Asection); the first pass did not need them |
 
 An issue labelled `blocked` is waiting for the sections it builds on. The appendices are mostly
 standard mathematics, and several pieces already exist in other Lean projects (see
