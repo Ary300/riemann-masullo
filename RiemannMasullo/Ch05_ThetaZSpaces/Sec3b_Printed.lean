@@ -4,6 +4,7 @@ public import RiemannMasullo.Ch05_ThetaZSpaces.Sec3b
 import RiemannMasullo.Ch02_AdelicTheta.Sec2a
 import RiemannMasullo.ForMathlib.Analysis.SpecialFunctions.Gaussian.Schwartz
 import Mathlib.Analysis.SpecialFunctions.Gaussian.PoissonSummation
+import RiemannMasullo.ForMathlib.Analysis.Distribution.SchwartzSpace.Gaussian
 
 /-!
 # §5.3.3–5.3.4: statements that are false as printed
@@ -126,13 +127,123 @@ def Printed.wirtinger_exponentialDecay : Prop :=
     ∃ D : complexDecay(Ioi a) →L[ℂ] complexDecay(Ioi (a + m)),
       ∀ f z, (D f).val z = wirtingerDeriv zeroExtension(f.val) z.val
 
+/-- Every Schwartz–Bruhat function on the complex units is bounded. -/
+private theorem Printed.wirtinger_exponentialDecay_bounded (f : ℂˣ → ℂ)
+    (hf : f ∈ schwartzBruhatSubmodule ℂˣ) : ∃ C : ℝ, ∀ x, ‖f x‖ ≤ C := by
+  obtain ⟨a, e, s, hs⟩ := (mem_schwartzBruhatSubmodule_iff f).mp hf
+  refine ⟨(elementarySchwartzBound s.val (0, 0, 0, 0)).toReal, fun x ↦ ?_⟩
+  rw [← hs, schwartzBruhatStageRealization_apply]
+  split_ifs
+  · change (‖s _‖₊ : ENNReal).toReal ≤ _
+    apply ENNReal.toReal_mono (s.property.2 _).ne
+    rw [elementarySchwartzBound_zero]
+    exact le_iSup (fun w ↦ (‖s w‖₊ : ENNReal)) _
+  · rw [norm_zero]
+    exact ENNReal.toReal_nonneg
+
+/-- The Wirtinger derivative of `|z|² exp(−|z|²)` at a real point `t` is
+`t (1 − t²) exp(−t²)`. -/
+private theorem Printed.wirtinger_exponentialDecay_deriv (t : ℝ) :
+    wirtingerDeriv (fun x : ℂ ↦ ((‖x‖ ^ 2 * Real.exp (-‖x‖ ^ 2) : ℝ) : ℂ)) (t : ℂ) =
+      ((t * ((1 - t ^ 2) * Real.exp (-t ^ 2)) : ℝ) : ℂ) := by
+  have hφ : HasDerivAt (fun s : ℝ ↦ s * Real.exp (-s)) ((1 - ‖(t : ℂ)‖ ^ 2) *
+      Real.exp (-‖(t : ℂ)‖ ^ 2)) (‖(t : ℂ)‖ ^ 2) :=
+    ((hasDerivAt_id' _).mul ((hasDerivAt_id' _).neg.exp)).congr_deriv
+      (by simp only [Pi.neg_apply]; ring)
+  have hn := (hasStrictFDerivAt_norm_sq (t : ℂ)).hasFDerivAt
+  have hc := Complex.ofRealCLM.hasFDerivAt.comp (t : ℂ) (hφ.comp_hasFDerivAt (t : ℂ) hn)
+  have hfun : (fun x : ℂ ↦ ((‖x‖ ^ 2 * Real.exp (-‖x‖ ^ 2) : ℝ) : ℂ)) =
+      Complex.ofRealCLM ∘ ((fun s : ℝ ↦ s * Real.exp (-s)) ∘ fun x : ℂ ↦ ‖x‖ ^ 2) := by
+    funext x; simp
+  rw [wirtingerDeriv, hfun, hc.fderiv]
+  simp [Complex.inner]
+  ring
+
+/-- For every bound there is a small positive `t` with `t^(−1/2) (1 − t²) exp(−t²)`
+above it. -/
+private theorem Printed.wirtinger_exponentialDecay_point (C : ℝ) :
+    ∃ t : ℝ, 0 < t ∧ C < (t ^ 2) ^ (-(3 / 4) : ℝ) * (t * ((1 - t ^ 2) * Real.exp (-t ^ 2))) := by
+  set s := 2 * max C 1
+  have hs : 2 ≤ s := by have := le_max_right C 1; linarith
+  have hs0 : 0 < s := by linarith
+  refine ⟨1 / s ^ 2, by positivity, ?_⟩
+  have hpow : ((1 / s ^ 2) ^ 2) ^ (-(3 / 4) : ℝ) = s ^ 3 := by
+    rw [show (1 / s ^ 2) ^ 2 = (s ^ 4)⁻¹ by ring, Real.inv_rpow (by positivity),
+      Real.rpow_neg (by positivity), inv_inv, ← Real.rpow_natCast, ← Real.rpow_mul hs0.le]
+    norm_num
+  rw [hpow]
+  set t := 1 / s ^ 2 with ht
+  have ht0 : 0 < t := by positivity
+  have ht1 : t ≤ 1 / 4 := by
+    rw [ht, div_le_div_iff₀ (by positivity) (by norm_num)]
+    nlinarith
+  have hexp : 3 / 4 ≤ Real.exp (-t ^ 2) := by
+    nlinarith [Real.add_one_le_exp (-t ^ 2)]
+  have h1 : 3 / 4 ≤ 1 - t ^ 2 := by nlinarith
+  have h9 : 9 / 16 ≤ (1 - t ^ 2) * Real.exp (-t ^ 2) := by
+    have := mul_le_mul h1 hexp (by norm_num) (by linarith)
+    linarith
+  have hst : s ^ 3 * t = s := by rw [ht]; field_simp
+  rw [← mul_assoc, hst]
+  nlinarith [le_max_left C 1]
+
 /-- Paper: Proposition 5.3.3.2(2)(2), p. 250. Take m = 0, a = −1/4 and a smooth
 radial cutoff of |z|^(3/4), equal to |z|^(3/4) near zero and zero for |z| ≥ 2.
 Each source twist has exponent 2b + 3/4 > 0 at zero. The first holomorphic derivative
-has modulus (3/8)|z|^(−1/4) near zero, so the target twist with b = 0 is unbounded. -/
+has modulus (3/8)|z|^(−1/4) near zero, so the target twist with b = 0 is unbounded.
+
+The Lean proof takes m = 0, a = −1 and `|z|² exp(−|z|²)`, the restriction of a Gaussian
+multiplied by the modulation: its twists with exponents above −1 are twists of the Gaussian
+with positive exponents. Its holomorphic derivative has modulus `|z| (1 − |z|²) exp(−|z|²)`,
+so the target twist with exponent −3/4 is unbounded near zero. -/
 theorem Printed.wirtinger_exponentialDecay_false :
     ¬ Printed.wirtinger_exponentialDecay := by
-  sorry
+  intro h
+  obtain ⟨D, hD⟩ := h 0 (-1) (by norm_num)
+  obtain ⟨R, -, hR⟩ := complexSchwartz_restrict_positiveDecay
+  let m := archimedeanUnitModulation ℂ 2
+  let γ : 𝓢(ℂ, ℂ) := (SchwartzMap.gaussian 1 one_pos).postcompCLM Complex.ofRealCLM
+  have hγ (z : ℂ) : γ z = ((Real.exp (-‖z‖ ^ 2) : ℝ) : ℂ) := by
+    simp [γ, SchwartzMap.postcompCLM_apply]
+  let g := R γ
+  have hm (z : ℂˣ) : ((m z).val : ℝ) = ‖(z : ℂ)‖ ^ 2 := archimedeanUnitModulation_apply ℂ 2 z
+  let hfun : ℂˣ → ℂ := fun z ↦ (((m z).val : ℝ) : ℂ) * g.val z
+  have hmem : hfun ∈ modulatedExponentialDecaySubmodule m (Ioi (-1)) := by
+    rw [modulatedExponentialDecaySubmodule, Submodule.mem_iInf]
+    rintro ⟨b, hb⟩
+    have hb' : b + 1 ∈ Ioi (0 : ℝ) := by simp only [mem_Ioi] at hb ⊢; linarith
+    have key := modulationWeight_mem_schwartzBruhat m (Ioi 0) ⟨b + 1, hb'⟩ g
+    show modulationWeight m b hfun ∈ schwartzBruhatSubmodule ℂˣ
+    convert key using 1
+    funext z
+    have hpos : (0 : ℝ) < ((m z).val : ℝ) := by
+      rw [hm]; exact pow_pos (norm_pos_iff.mpr z.ne_zero) 2
+    show ((((m z).val : ℝ) ^ b : ℝ) : ℂ) * ((((m z).val : ℝ) : ℂ) * g.val z) =
+      ((((m z).val : ℝ) ^ (b + 1) : ℝ) : ℂ) * g.val z
+    rw [Real.rpow_add hpos, Real.rpow_one]
+    push_cast
+    ring
+  let H : complexDecay(Ioi (-1)) := ⟨hfun, hmem⟩
+  have hzero : zeroExtension(H.val) =
+      fun x : ℂ ↦ ((‖x‖ ^ 2 * Real.exp (-‖x‖ ^ 2) : ℝ) : ℂ) := by
+    funext x
+    by_cases hx : x = 0
+    · simp [hx]
+    · simp only [ne_eq, hx, not_false_eq_true, ↓reduceDIte]
+      change (((m (Units.mk0 x hx)).val : ℝ) : ℂ) * (R γ).val (Units.mk0 x hx) = _
+      rw [hR, hm, Units.val_mk0, hγ]
+      push_cast
+      ring
+  have hDmem := modulationWeight_mem_schwartzBruhat m (Ioi (-1 + ((0 : ℕ) : ℝ)))
+    ⟨-(3 / 4), by norm_num⟩ (D H)
+  obtain ⟨C, hC⟩ := Printed.wirtinger_exponentialDecay_bounded _ hDmem
+  obtain ⟨t, ht, htC⟩ := Printed.wirtinger_exponentialDecay_point C
+  set z : ℂˣ := Units.mk0 (t : ℂ) (Complex.ofReal_ne_zero.mpr ht.ne') with hz
+  have hb : ‖((((m z).val : ℝ) ^ (-(3 / 4) : ℝ) : ℝ) : ℂ) * (D H).val z‖ ≤ C := hC z
+  rw [hD, hzero, hz, Units.val_mk0, Printed.wirtinger_exponentialDecay_deriv, hm, Units.val_mk0,
+    Complex.norm_real, Real.norm_eq_abs, sq_abs, ← Complex.ofReal_mul, Complex.norm_real,
+    Real.norm_eq_abs] at hb
+  exact absurd (htC.trans_le (le_abs_self _)) (not_lt.mpr hb)
 
 local notation "realDecay(" I ")" => ModulatedExponentialDecay (archimedeanUnitModulation ℝ 1) I
 
