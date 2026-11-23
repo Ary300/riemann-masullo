@@ -49,6 +49,9 @@ here was tested against the page images by two agents in turn; what held is entr
 F233–F248, I352–I373, M29–M49 and, for parts of the paper that are not stated in Lean,
 R10–R30. Forty wrong cross-references are listed separately near the end.
 
+What each outside reader reported, page by page, and where it stands here, is indexed in
+[`OUTSIDE_REPORTS.md`](OUTSIDE_REPORTS.md).
+
 ## Where no repair is known yet
 
 Most entries below come with a repair, and the Lean states the repaired form. For these the

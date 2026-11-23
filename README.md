@@ -271,6 +271,8 @@ on work that does not appear there.
 - Five independent readings of the paper located gaps, some of them before the formalization
   reached those pages. [`ERRATA.md`](ERRATA.md) names them where an entry agrees with one or
   started from one, and agents that work on those pages are given them as leads to test.
+  [`OUTSIDE_REPORTS.md`](OUTSIDE_REPORTS.md) indexes what each of them reported, page by page,
+  with where it stands in the errata and in the Lean.
   - **Isaac Yonemoto**'s dependency audit,
     [`ityonemo/music-of-primes`](https://github.com/ityonemo/music-of-primes). It includes
     **Jenny Lorraine Nielsen**'s note *A Failure of Uniform Boundedness in Masullo's Proposed
