@@ -1611,7 +1611,13 @@ theorem globalThetaIsotypeSum_barrelled_montel :
     letI := Classical.decEq (PontryaginDual C₁)
     let D := ⨁ ω, X ω
     letI := locallyConvexFinalTopology (DirectSum.lof ℂ _ X)
-    BarrelledSpace ℂ D ∧ MontelSpace ℂ D := by sorry
+    BarrelledSpace ℂ D ∧ MontelSpace ℂ D := by
+  classical
+  intro X D
+  let : TopologicalSpace D := locallyConvexFinalTopology (DirectSum.lof ℂ _ X)
+  have h : IsLFSpace D ∧ IsNuclearTVS.{0} D := globalThetaIsotypeSum_isLFSpace_nuclear (F := F)
+  exact thetaIsotypeSum_barrelled_montel_of_complete h.1 h.2
+    (globalThetaIsotypeSum_complete (F := F)).2.2
 
 /-- Paper: Remark 6.2.1.4(1), p. 297.
 The strong dual of the locally convex sum of the global isotypes is complete, nuclear,
