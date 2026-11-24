@@ -1145,16 +1145,6 @@ theorem curveZeta_extensionPointCount (f : X ⟶ Spec (.of k))
     rfl
   rw [hstep1, hstep2, hstep3]
 
-/-- Paper: §14.2, p. 535. The number of degree-m closed points is
-q^m/m with error O(q^(m/2)/m) as m tends to infinity.
-Deviation: The Big-O constant here is for the given curve. The paper also
-specifies uniformity in the curve through its genus. -/
-theorem curveZeta_closedPointsOfDegree_asymptotic (f : X ⟶ Spec (.of k))
-    [SmoothOfRelativeDimension 1 f] [IsProper f] [GeometricallyConnected f] :
-    let q : ℝ := Nat.card k
-    (fun m : ℕ ↦ (curveZetaClosedPointCount f m : ℝ) - q ^ m / m) =O[Filter.atTop]
-      (fun m : ℕ ↦ Real.sqrt (q ^ m) / m) := by sorry
-
 /-- A geometric sum in the base `q ≥ 2` is at most twice its last term. -/
 private theorem curveZeta_closedPointsOfDegree_bound_of_weil_geom (q : ℝ) (hq : 2 ≤ q) (n : ℕ) :
     ∑ b ∈ Finset.Icc 1 n, q ^ b ≤ 2 * q ^ n := by
@@ -1294,6 +1284,40 @@ theorem curveZeta_closedPointsOfDegree_bound_of_weil (f : X ⟶ Spec (.of k))
     exact_mod_cast h
   exact curveZeta_closedPointsOfDegree_bound_of_weil_aux q g
     (fun d ↦ (curveZetaClosedPointCount f d : ℝ)) hq (Nat.cast_nonneg g) hW m hm
+
+/-- Classical input: the Hasse–Weil bound. For a smooth proper geometrically connected curve
+over a field with `q` elements there is a `g` (its genus) such that, for every `r ≥ 1`, the number
+of points over the extension of degree `r` differs from `q^r + 1` by at most `2 g √(q^r)`.
+A. Weil, *Sur les courbes algébriques et les variétés qui s'en déduisent*, Hermann, Paris, 1948;
+an elementary proof is E. Bombieri, *Counting points on curves over finite fields (d'après
+S. A. Stepanov)*, Séminaire Bourbaki 430 (1973). The number of points over the extension of
+degree `r` is written here as `∑_{d ∣ r} d · a_d`, with `a_d` the number of closed points of
+degree `d`; `curveZeta_extensionPointCount` proves that this is the count of points with values
+in any extension of degree `r`. -/
+private theorem curveZeta_closedPointsOfDegree_asymptotic_weil (f : X ⟶ Spec (.of k))
+    [SmoothOfRelativeDimension 1 f] [IsProper f] [GeometricallyConnected f] :
+    ∃ g : ℕ, ∀ r : ℕ, 0 < r →
+      |∑ d ∈ r.divisors, (d : ℝ) * curveZetaClosedPointCount f d -
+          ((Nat.card k : ℝ) ^ r + 1)| ≤ 2 * g * Real.sqrt ((Nat.card k : ℝ) ^ r) := by
+  sorry
+
+/-- Paper: §14.2, p. 535. The number of degree-m closed points is
+q^m/m with error O(q^(m/2)/m) as m tends to infinity.
+Deviation: The Big-O constant here is for the given curve. The paper also
+specifies uniformity in the curve through its genus. -/
+theorem curveZeta_closedPointsOfDegree_asymptotic (f : X ⟶ Spec (.of k))
+    [SmoothOfRelativeDimension 1 f] [IsProper f] [GeometricallyConnected f] :
+    let q : ℝ := Nat.card k
+    (fun m : ℕ ↦ (curveZetaClosedPointCount f m : ℝ) - q ^ m / m) =O[Filter.atTop]
+      (fun m : ℕ ↦ Real.sqrt (q ^ m) / m) := by
+  intro q
+  obtain ⟨g, hg⟩ := curveZeta_closedPointsOfDegree_asymptotic_weil f
+  have hb := curveZeta_closedPointsOfDegree_bound_of_weil f g hg
+  refine Asymptotics.IsBigO.of_bound (5 + 6 * (g : ℝ)) ?_
+  filter_upwards [Filter.eventually_gt_atTop 0] with m hm
+  have hm' : (0 : ℝ) ≤ Real.sqrt (q ^ m) / m := by positivity
+  rw [Real.norm_eq_abs, Real.norm_eq_abs, abs_of_nonneg hm', ← mul_div_assoc]
+  exact hb m hm
 
 /-- Paper: (14.2.0.1), p. 534. On `Re(s) > 1` the finite products over closed
 points converge to the zeta Euler product.
