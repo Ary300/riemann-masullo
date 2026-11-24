@@ -1829,11 +1829,6 @@ theorem sLocalHomogeneousThetaSpace_strongDual_complete (χ : PontryaginDual (J�
     sAdeleSchwartz_strongDual_complete F S
   exact completeSpace_strongDual_quotient _
 
-/-- Paper: Theorem 5.2.3.1(2), p. 233.
-The strong dual of the S-local homogeneous quotient is nuclear. -/
-theorem sLocalHomogeneousThetaSpace_strongDual_nuclear (χ : PontryaginDual (J₁(S))) :
-    IsNuclearTVS (StrongDual ℂ (Θₛω(S, χ))) := by sorry
-
 private theorem sLocalHomogeneousThetaSpace_strongDual_montel_aux {E : Type*}
     [AddCommGroup E] [Module ℂ E] [TopologicalSpace E] [IsTopologicalAddGroup E]
     [ContinuousSMul ℂ E] [T2Space E] [PolynormableSpace ℂ E]
@@ -2139,6 +2134,32 @@ theorem sLocalThetaIsotypicAverage_equiv (χ : PontryaginDual (J₁(S))) :
       (existsUnique_sLocalThetaAction (F := F) (S := S)).exists.choose_spec.1 χ (Pₛ(S, χ))
       (existsUnique_sLocalThetaIsotypicAverage (F := F) (S := S) χ).exists.choose_spec
       (sLocalHomogeneousThetaSpace_equiv_coinvariants (F := F) (S := S) χ)
+
+/-- Paper: Theorem 5.2.3.1(2), p. 233.
+The strong dual of the S-local homogeneous quotient is nuclear. -/
+theorem sLocalHomogeneousThetaSpace_strongDual_nuclear (χ : PontryaginDual (J₁(S))) :
+    IsNuclearTVS (StrongDual ℂ (Θₛω(S, χ))) := by
+  let E := SLocalAdelicThetaSpace F S
+  let G := J₁(S)
+  have := isClosed_sProjectedDiagonal (F := F) (S := S)
+  let : T2Space (Jₛ(S)) := inferInstanceAs (T2Space (_ ⧸ _))
+  let : T2Space G := inferInstanceAs (T2Space ((sIdeleQuotientNorm F S).ker : Set (Jₛ(S))))
+  let : MeasurableSpace G := borel _
+  let : BorelSpace G := ⟨rfl⟩
+  let : CompactSpace G := isCompact_iff_compactSpace.mp
+    ((isProperMap_sIdeleQuotientNorm F S).isCompact_preimage (isCompact_singleton (x := 1)))
+  let : T2Space E := sLocalAdelicThetaSpace_t2_of_isClosed (F := F) (S := S)
+    (sLocalAdelicTheta_ker_isClosed (F := F) (S := S))
+  let : PolynormableSpace ℂ E := sLocalAdelicThetaSpace_polynormable (F := F) (S := S)
+  let : (μₛ₁(S)).IsHaarMeasure := (sLocalNormOneQuotientMeasure_normProduct (F := F) (S := S)).1
+  let : Module ℝ E := Module.restrictScalars ℝ ℂ E
+  let : IsScalarTower ℝ ℂ E := IsScalarTower.restrictScalars ℝ ℂ E
+  let : LocallyConvexSpace ℝ E := (PolynormableSpace.withSeminorms ℂ E).toLocallyConvexSpace
+  with_reducible_and_instances
+    exact strongDual_nuclear_of_compact_isotype (μₛ₁(S)) (ρₛ₁(S)) χ (Pₛ(S, χ))
+      (existsUnique_sLocalThetaIsotypicAverage (F := F) (S := S) χ).exists.choose_spec
+      (sLocalThetaIsotypicAverage_equiv (F := F) (S := S) χ).2.choose
+      (sLocalAdelicThetaSpace_strongDual_nuclear (F := F) (S := S))
 
 -- TODO(paper-gap): The global L² argument on p. 237 fails at norm zero for
 -- the rational Gaussian. Apply character uniqueness on each compact norm-one fibre.
