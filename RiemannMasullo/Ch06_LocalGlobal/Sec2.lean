@@ -6,7 +6,7 @@ public import RiemannMasullo.AppD_SchwartzBruhat.Sec3a
 import RiemannMasullo.Ch05_ThetaZSpaces.Sec4
 import all RiemannMasullo.Ch02_AdelicTheta.Sec1
 import all RiemannMasullo.Ch04_PeriodicSchauderBases.Sec3b
-import all RiemannMasullo.AppC_LCTVS.Sec2b
+import RiemannMasullo.AppC_LCTVS.Sec2b
 import RiemannMasullo.ForMathlib.Analysis.Fourier.CompactGroup
 import RiemannMasullo.AppA_AlgebraicNT.Sec2b
 import RiemannMasullo.Ch02_AdelicTheta.Sec2b

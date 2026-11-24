@@ -17,7 +17,7 @@ import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
 import Mathlib.NumberTheory.NumberField.CanonicalEmbedding.Basic
 import RiemannMasullo.ForMathlib.NumberTheory.NumberField.InfiniteAdeleRing
 import all RiemannMasullo.AppC_LCTVS.Sec1
-import all RiemannMasullo.AppC_LCTVS.Sec2b
+import RiemannMasullo.AppC_LCTVS.Sec2b
 import RiemannMasullo.ForMathlib.Topology.Algebra.Module.StrongDualQuotient
 import RiemannMasullo.ForMathlib.Analysis.Normed.Group.InfiniteSum
 import RiemannMasullo.ForMathlib.Topology.Algebra.Valued.LocallyConstant
