@@ -1750,7 +1750,32 @@ theorem globalThetaIsotypeSum_isLFSpace_nuclear :
     letI := Classical.decEq (PontryaginDual C₁)
     let D := ⨁ ω, X ω
     letI := locallyConvexFinalTopology (DirectSum.lof ℂ _ X)
-    IsLFSpace D ∧ IsNuclearTVS D := by sorry
+    IsLFSpace D ∧ IsNuclearTVS D := by
+  classical
+  intro X D
+  let : TopologicalSpace D := locallyConvexFinalTopology (DirectSum.lof ℂ _ X)
+  let : CompactSpace C₁ := (ideleClassGroup_finiteness F).2.1
+  let : T2Space C₁ := (ideleClassGroup_finiteness F).2.2.1
+  let : SecondCountableTopology 𝔸[F] := adeleGroupSecondCountable F
+  let : SecondCountableTopology 𝔸[F]ᵐᵒᵖ := MulOpposite.opHomeomorph.symm.isEmbedding.secondCountableTopology
+  let : SecondCountableTopology (IdeleGroup (𝓞 F) F) := Units.isEmbedding_embedProduct.secondCountableTopology
+  let : SecondCountableTopology (IdeleClassGroup (𝓞 F) F) :=
+    (ideleGroup_quotient.{_, 0} F).2.2.2.2.1.secondCountableTopology
+  let : SecondCountableTopology C₁ := TopologicalSpace.Subtype.secondCountableTopology _
+  let : LocallyCompactSpace C₁ := inferInstance
+  let : SecondCountableTopology Circle :=
+    inferInstanceAs (SecondCountableTopology (Metric.sphere (0 : ℂ) 1))
+  let : SecondCountableTopology (PontryaginDual C₁) :=
+    (ContinuousMonoidHom.isEmbedding_toContinuousMap C₁ Circle).secondCountableTopology
+  let : Countable (PontryaginDual C₁) := countable_of_Lindelof_of_discrete
+  let : PolynormableSpace ℂ Θ𝔽 := globalAdelicThetaSpace_polynormable
+  let : IsTopologicalAddGroup Θ𝔽 := PolynormableSpace.isTopologicalAddGroup ℂ _
+  have hX (χ : PontryaginDual C₁) : IsFrechetTVS (X χ) := by
+    obtain ⟨e, _⟩ := (globalThetaIsotypicAverage_equiv (F := F) χ).2
+    exact frechet_of_equiv e (globalHomogeneousThetaSpace_nuclearFrechet.{_, 0} χ).1
+  have hn : IsNuclearTVS D := isNuclearTVS_directSum (X := X) (fun χ ↦
+    isNuclearTVS_submodule (globalAdelicThetaSpace_nuclear (F := F)) (E𝔽(χ)))
+  exact ⟨thetaIsotypeSum_isLFSpace_of_frechet X hX hn.1, hn⟩
 
 /-- Paper: Remark 6.2.1.4(1), p. 297.
 The locally convex sum of the global isotypes is barrelled and Montel. This is the second
