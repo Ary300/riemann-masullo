@@ -1349,25 +1349,6 @@ theorem perronCutoffSet_integer_half_integer {b : ℝ} (hb : 0 < b) (n : ℤ) :
   rw [habs]
   exact ⟨fun h ↦ h.resolve_left hnot, Or.inr⟩
 
-/-- Paper: Theorem B.7.1.2(1), Equation (B.7.1.8), p. 645. For the character
-`|·|^(-it₀)`, the cutoff polynomial on the 1-line is the negative shifted
-Dedekind zeta logarithmic derivative plus the oscillatory pole term and an
-analytic remainder. The remainder tends uniformly to zero on compact subsets
-away from the pole along `J_b`. -/
-theorem heckeLogDerivPolynomial_normTwist (χ : U[F]) (t₀ : ℝ)
-    (hχ : ideleClassNormTwist χ 0 = ideleClassNormTwist (1 : U[F]) (-Complex.I * t₀))
-    (Z : ℂ → ℂ) (hZ : MeromorphicNFOn Z univ)
-    (hSeries : ∀ s : halfPlane, Z s = dedekindZeta F s)
-    (K : Set ℂ) (hK : IsCompact K) (hKline : K ⊆ oneLine)
-    (hpole : (1 + Complex.I * t₀ : ℂ) ∉ K) {b : ℝ} (hb : 0 < b) :
-    ∃ error : ℝ → ℂ → ℂ,
-      (∀ x > 1, AnalyticOnNhd ℂ (error x) oneLine ∧
-        ∀ s ∈ oneLine, s ≠ 1 + Complex.I * t₀ →
-          heckeLogDerivPolynomial χ x s = -logDeriv Z (s - Complex.I * t₀) +
-            (x : ℂ) ^ (1 + Complex.I * t₀ - s) / (1 + Complex.I * t₀ - s) + error x s) ∧
-      TendstoUniformlyOn error (fun _ ↦ 0) (atTop ⊓ 𝓟 (perronCutoffSet b)) K := by
-  sorry
-
 /-- For `1 ≤ x ≤ y`, `∫ₓʸ C / (t (1 + log t)²) dt = C/(1 + log x) - C/(1 + log y)`. -/
 private theorem heckeLogDerivPolynomial_of_nontrivial_on_normOne_integral (C : ℝ) {x y : ℝ}
     (hx : 1 ≤ x) (hxy : x ≤ y) :
@@ -2065,6 +2046,519 @@ theorem heckeLogDerivPolynomial_at_pole (χ : U[F]) (t₀ : ℝ)
   filter_upwards [eventually_ge_atTop (1 : ℝ)] with x hx
   rw [hpoly, ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs, norm_one, mul_one]
   exact heckeLogDerivPolynomial_at_pole_mertens a ha0 hC x hx
+
+/-- With `hχ`, the coefficient of norm `n` is `n^(i t₀)` times the untwisted weight `Λ_F(n)`. -/
+private theorem heckeLogDerivPolynomial_normTwist_coeff (χ : U[F]) (t₀ : ℝ)
+    (hχ : ideleClassNormTwist χ 0 = ideleClassNormTwist (1 : U[F]) (-Complex.I * t₀))
+    (n : ℕ) :
+    heckeLogDerivCoefficient (ideleClassNormTwist χ 0) n = (n : ℂ) ^ (Complex.I * t₀) *
+      ((∑ᶠ I : {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = n}, idealVonMangoldt I.val : ℝ) : ℂ) := by
+  classical
+  have hfin : {I : Ideal (𝓞 F) | I ≠ ⊥ ∧ I.absNorm = n}.Finite :=
+    (Ring.HasFiniteQuotients.finite_absNorm_eq (S := 𝓞 F) n).subset fun _ h ↦ h.2
+  have : Finite {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = n} := hfin.to_subtype
+  have : Fintype {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = n} := Fintype.ofFinite _
+  rw [hχ, heckeLogDerivCoefficient, finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype,
+    Complex.ofReal_sum, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun I _ ↦ ?_
+  rw [heckeLogDerivPolynomial_perron_error_vonMangoldt, I.property.2, neg_mul, neg_neg]
+
+/-- The main-term version of the Abel tail bound: if the summatory function of `a` is
+`t + O(t / (1 + log t)²)`, then on `Re w > 1` the tail of `∑ a_k k^(-w)` differs from
+`∫ₓʸ t^(-w) dt` by `O((2 + ‖w‖)/(1 + log x))`. -/
+private theorem heckeLogDerivPolynomial_normTwist_tail (a : ℕ → ℝ) {C : ℝ}
+    (hA : ∀ t : ℝ, 1 ≤ t →
+      |∑ k ∈ Finset.Icc 0 ⌊t⌋₊, a k - t| ≤ C * t / (1 + Real.log t) ^ 2)
+    (w : ℂ) (hw : 1 < w.re) {x y : ℝ} (hx : 1 ≤ x) (hxy : x ≤ y) :
+    ‖∑ k ∈ Finset.Ioc ⌊x⌋₊ ⌊y⌋₊, (k : ℂ) ^ (-w) * (a k : ℂ) -
+        ((y : ℂ) ^ (1 - w) - (x : ℂ) ^ (1 - w)) / (1 - w)‖ ≤
+      C * (2 + ‖w‖) / (1 + Real.log x) := by
+  have hC : 0 ≤ C := by
+    have h := hA 1 le_rfl
+    simp only [Real.log_one, add_zero, one_pow, div_one, mul_one] at h
+    exact (abs_nonneg _).trans h
+  set A : ℝ → ℂ := fun t ↦ ∑ k ∈ Finset.Icc 0 ⌊t⌋₊, (a k : ℂ) with hAdef
+  have hAE : ∀ t : ℝ, 1 ≤ t → ‖A t - t‖ ≤ C * t / (1 + Real.log t) ^ 2 := by
+    intro t ht
+    have : A t - t = ((∑ k ∈ Finset.Icc 0 ⌊t⌋₊, a k - t : ℝ) : ℂ) := by
+      simp [hAdef, Complex.ofReal_sum]
+    rw [this, Complex.norm_real, Real.norm_eq_abs]
+    exact hA t ht
+  have hx0 : 0 < x := by linarith
+  have hy0 : 0 < y := by linarith
+  have hw1 : (1 : ℂ) - w ≠ 0 := by
+    intro h
+    have := congrArg Complex.re h
+    simp at this
+    linarith
+  have hd : ∀ t : ℝ, 0 < t →
+      HasDerivAt (fun t : ℝ ↦ (t : ℂ) ^ (-w)) ((-w) * (t : ℂ) ^ (-w - 1)) t := by
+    intro t ht
+    have h := (hasDerivAt_id (t : ℂ)).cpow_const (c := -w) (Or.inl (by simpa using ht))
+    have h2 := h.comp_ofReal (z := t)
+    simpa [mul_comm] using h2
+  have hderiv : ∀ t : ℝ, 0 < t →
+      deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t = (-w) * (t : ℂ) ^ (-w - 1) :=
+    fun t ht ↦ (hd t ht).deriv
+  have hnorm_pow : ∀ t : ℝ, 0 < t → ∀ v : ℂ, ‖(t : ℂ) ^ v‖ = t ^ v.re := fun t ht v ↦
+    Complex.norm_cpow_eq_rpow_re_of_pos ht v
+  have hcont_d : ContinuousOn (fun t : ℝ ↦ (-w) * (t : ℂ) ^ (-w - 1)) (Icc x y) := by
+    refine continuousOn_const.mul ?_
+    refine ContinuousOn.cpow_const (Complex.continuous_ofReal.continuousOn) fun t ht ↦ ?_
+    exact Or.inl (by simpa using (by linarith [ht.1] : (0:ℝ) < t))
+  have hint_d : MeasureTheory.IntegrableOn (deriv fun t : ℝ ↦ (t : ℂ) ^ (-w)) (Icc x y) := by
+    refine (hcont_d.integrableOn_Icc).congr_fun
+      (fun t ht ↦ (hderiv t (by linarith [ht.1])).symm) measurableSet_Icc
+  have habel := sum_mul_eq_sub_sub_integral_mul (fun k ↦ (a k : ℂ)) hx0.le hxy
+    (fun t ht ↦ (hd t (by linarith [ht.1])).differentiableAt) hint_d
+  simp only [Complex.ofReal_natCast] at habel
+  -- split the integral into the error part and the main part
+  have hint1 : MeasureTheory.IntegrableOn
+      (fun t ↦ deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * A t) (Ioc x y) :=
+    (integrableOn_mul_sum_Icc (fun k ↦ (a k : ℂ)) hx0.le hint_d).mono_set Ioc_subset_Icc_self
+  have hcont3 : ContinuousOn (fun t : ℝ ↦ (-w) * (t : ℂ) ^ (-w)) (Icc x y) := by
+    refine continuousOn_const.mul ?_
+    refine ContinuousOn.cpow_const (Complex.continuous_ofReal.continuousOn) fun t ht ↦ ?_
+    exact Or.inl (by simpa using (by linarith [ht.1] : (0:ℝ) < t))
+  have heq3 : ∀ t ∈ Ioc x y,
+      deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (t : ℂ) = (-w) * (t : ℂ) ^ (-w) := by
+    intro t ht
+    have ht0 : 0 < t := by linarith [ht.1]
+    have hct : (t : ℂ) ≠ 0 := by exact_mod_cast ht0.ne'
+    rw [hderiv t ht0, mul_assoc]
+    congr 1
+    rw [Complex.cpow_sub _ _ hct, Complex.cpow_one]
+    field_simp
+  have hint3 : MeasureTheory.IntegrableOn
+      (fun t ↦ deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (t : ℂ)) (Ioc x y) :=
+    ((hcont3.integrableOn_Icc).mono_set Ioc_subset_Icc_self).congr_fun
+      (fun t ht ↦ (heq3 t ht).symm) measurableSet_Ioc
+  have hint2 : MeasureTheory.IntegrableOn
+      (fun t ↦ deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t)) (Ioc x y) := by
+    have := hint1.sub hint3
+    refine this.congr_fun (fun t _ ↦ ?_) measurableSet_Ioc
+    simp only [Pi.sub_apply]
+    ring
+  have hsplit : ∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * A t =
+      (∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t)) +
+        ∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (t : ℂ) := by
+    rw [← MeasureTheory.integral_add hint2 hint3]
+    refine MeasureTheory.setIntegral_congr_fun measurableSet_Ioc fun t _ ↦ ?_
+    ring
+  have hI3 : ∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (t : ℂ) =
+      (-w) * (((y : ℂ) ^ (1 - w) - (x : ℂ) ^ (1 - w)) / (1 - w)) := by
+    rw [MeasureTheory.setIntegral_congr_fun measurableSet_Ioc heq3,
+      MeasureTheory.integral_const_mul, ← intervalIntegral.integral_of_le hxy,
+      integral_cpow (Or.inr ⟨fun h ↦ hw1 (by linear_combination h), by
+        rw [uIcc_of_le hxy]; intro h; linarith [h.1]⟩),
+      show -w + 1 = 1 - w by ring]
+  have hyw : (y : ℂ) ^ (-w) * (y : ℂ) = (y : ℂ) ^ (1 - w) := by
+    have hcy : (y : ℂ) ≠ 0 := by exact_mod_cast hy0.ne'
+    rw [show (1 : ℂ) - w = -w + 1 by ring, Complex.cpow_add _ _ hcy, Complex.cpow_one]
+  have hxw : (x : ℂ) ^ (-w) * (x : ℂ) = (x : ℂ) ^ (1 - w) := by
+    have hcx : (x : ℂ) ≠ 0 := by exact_mod_cast hx0.ne'
+    rw [show (1 : ℂ) - w = -w + 1 by ring, Complex.cpow_add _ _ hcx, Complex.cpow_one]
+  have hkey : ∑ k ∈ Finset.Ioc ⌊x⌋₊ ⌊y⌋₊, (k : ℂ) ^ (-w) * (a k : ℂ) -
+        ((y : ℂ) ^ (1 - w) - (x : ℂ) ^ (1 - w)) / (1 - w) =
+      (y : ℂ) ^ (-w) * (A y - y) - (x : ℂ) ^ (-w) * (A x - x) -
+        ∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t) := by
+    rw [habel, hsplit, hI3]
+    have e1 : (y : ℂ) ^ (-w) * (A y - y) = (y : ℂ) ^ (-w) * A y - (y : ℂ) ^ (1 - w) := by
+      rw [mul_sub, hyw]
+    have e2 : (x : ℂ) ^ (-w) * (A x - x) = (x : ℂ) ^ (-w) * A x - (x : ℂ) ^ (1 - w) := by
+      rw [mul_sub, hxw]
+    rw [e1, e2]
+    field_simp
+    ring
+  rw [hkey]
+  have hend : ∀ z : ℝ, x ≤ z → ‖(z : ℂ) ^ (-w) * (A z - z)‖ ≤ C / (1 + Real.log x) := by
+    intro z hz
+    have hz1 : 1 ≤ z := hx.trans hz
+    have hz0 : 0 < z := by linarith
+    have hlz : Real.log x ≤ Real.log z := Real.log_le_log hx0 hz
+    have hlx : 0 ≤ Real.log x := Real.log_nonneg hx
+    rw [norm_mul, hnorm_pow z hz0, Complex.neg_re]
+    have hzs : z ^ (-w.re) ≤ z⁻¹ := by
+      rw [← Real.rpow_neg_one]
+      exact Real.rpow_le_rpow_of_exponent_le hz1 (by linarith)
+    calc z ^ (-w.re) * ‖A z - z‖ ≤ z⁻¹ * (C * z / (1 + Real.log z) ^ 2) :=
+          mul_le_mul hzs (hAE z hz1) (norm_nonneg _) (by positivity)
+      _ = C / (1 + Real.log z) ^ 2 := by field_simp
+      _ ≤ C / (1 + Real.log z) := by
+          apply div_le_div_of_nonneg_left hC (by linarith)
+          nlinarith
+      _ ≤ C / (1 + Real.log x) := div_le_div_of_nonneg_left hC (by linarith) (by linarith)
+  have hint : ‖∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t)‖ ≤
+      ‖w‖ * (C / (1 + Real.log x)) := by
+    rw [← intervalIntegral.integral_of_le hxy]
+    have hb := intervalIntegral.norm_integral_le_of_norm_le (μ := MeasureTheory.volume) hxy
+      (f := fun t ↦ deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t))
+      (g := fun t ↦ ‖w‖ * (C / (t * (1 + Real.log t) ^ 2)))
+      (by
+        refine MeasureTheory.ae_of_all _ fun t ht ↦ ?_
+        have ht1 : 1 ≤ t := hx.trans ht.1.le
+        have ht0 : 0 < t := by linarith
+        have hl : 0 < 1 + Real.log t := by linarith [Real.log_nonneg ht1]
+        rw [hderiv t ht0, norm_mul, norm_mul, norm_neg, hnorm_pow t ht0]
+        have hre : (-w - 1).re = -w.re - 1 := by simp
+        rw [hre]
+        have hts : t ^ (-w.re - 1) ≤ t ^ (-2 : ℝ) :=
+          Real.rpow_le_rpow_of_exponent_le ht1 (by linarith)
+        have h2 : t ^ (-2 : ℝ) = (t ^ 2)⁻¹ := by
+          rw [Real.rpow_neg ht0.le]; norm_cast
+        rw [h2] at hts
+        calc ‖w‖ * t ^ (-w.re - 1) * ‖A t - t‖ ≤
+            ‖w‖ * (t ^ 2)⁻¹ * (C * t / (1 + Real.log t) ^ 2) :=
+              mul_le_mul (mul_le_mul_of_nonneg_left hts (norm_nonneg _)) (hAE t ht1)
+                (norm_nonneg _) (by positivity)
+          _ = ‖w‖ * (C / (t * (1 + Real.log t) ^ 2)) := by field_simp)
+      (by
+        refine (ContinuousOn.intervalIntegrable ?_)
+        refine continuousOn_const.mul (ContinuousOn.div continuousOn_const ?_ fun t ht ↦ ?_)
+        · refine continuousOn_id.mul ((continuousOn_const.add ?_).pow 2)
+          exact Real.continuousOn_log.mono fun t ht ↦ by
+            rw [uIcc_of_le hxy] at ht
+            exact (by linarith [ht.1] : (0:ℝ) < t).ne'
+        · rw [uIcc_of_le hxy] at ht
+          have ht0 : 0 < t := by linarith [ht.1]
+          have hl : 0 < 1 + Real.log t := by linarith [Real.log_nonneg (hx.trans ht.1)]
+          exact (mul_pos ht0 (pow_pos hl 2)).ne')
+    rw [intervalIntegral.integral_const_mul,
+      heckeLogDerivPolynomial_of_nontrivial_on_normOne_integral C hx hxy] at hb
+    have : 0 ≤ C / (1 + Real.log y) := by
+      have : 0 < 1 + Real.log y := by linarith [Real.log_nonneg (hx.trans hxy)]
+      positivity
+    calc _ ≤ ‖w‖ * (C / (1 + Real.log x) - C / (1 + Real.log y)) := hb
+      _ ≤ ‖w‖ * (C / (1 + Real.log x)) :=
+          mul_le_mul_of_nonneg_left (by linarith) (norm_nonneg _)
+  calc ‖(y : ℂ) ^ (-w) * (A y - y) - (x : ℂ) ^ (-w) * (A x - x) -
+        ∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t)‖
+      ≤ ‖(y : ℂ) ^ (-w) * (A y - y)‖ + ‖(x : ℂ) ^ (-w) * (A x - x)‖ +
+        ‖∫ t in Ioc x y, deriv (fun t : ℝ ↦ (t : ℂ) ^ (-w)) t * (A t - t)‖ :=
+        (norm_sub_le _ _).trans (add_le_add (norm_sub_le _ _) le_rfl)
+    _ ≤ C / (1 + Real.log x) + C / (1 + Real.log x) + ‖w‖ * (C / (1 + Real.log x)) :=
+        add_le_add (add_le_add (hend y hxy) (hend x le_rfl)) hint
+    _ = C * (2 + ‖w‖) / (1 + Real.log x) := by ring
+
+/-- The continuation of Dedekind zeta and the completed one, with the pole data at one: the
+completed function is analytic off `{0, 1}` and has a simple pole at `1`, and the orders agree
+with those of `Z` on `Re s > 0`. -/
+private theorem heckeLogDerivPolynomial_normTwist_zeta_orders (Z : ℂ → ℂ)
+    (hZ : MeromorphicNFOn Z univ)
+    (hSeries : ∀ s : halfPlane, Z s = dedekindZeta F s) :
+    (∀ w : ℂ, 1 ≤ w.re → meromorphicOrderAt Z w ≤ 0) ∧
+      (∀ w : ℂ, 0 < w.re → w ≠ 1 → 0 ≤ meromorphicOrderAt Z w) ∧
+      meromorphicOrderAt Z 1 = -1 := by
+  have hS : ∀ s : halfPlane, Z s = finiteHeckeL (1 : U[F]) s := fun s ↦
+    (hSeries s).trans (heckeLogDerivPolynomial_perron_error_zeta s).symm
+  obtain ⟨Λ, hΛ, hΛs, hord⟩ :=
+    heckeLogDerivPolynomial_of_nontrivial_on_normOne_completed (1 : U[F]) Z hZ hS
+  have htriv : (1 : U[F]).toMonoidHom.comp (ideleClassNorm F).ker.subtype = 1 := by
+    ext g; rfl
+  obtain ⟨t, ⟨ht, -, hp1, han⟩, -⟩ :=
+    completedHeckeL_continuation_simplePoles (1 : U[F]) Λ hΛ hΛs htriv
+  have ht0 : t = 0 :=
+    (heckeIdealSummatory_tendsto_of_trivial_on_normOne (1 : U[F]) htriv).1.unique ht (by simp)
+  subst ht0
+  simp only [Complex.ofReal_zero, mul_zero, add_zero] at hp1 han
+  refine ⟨fun w hw ↦ ?_, fun w hw hw1 ↦ ?_, ?_⟩
+  · obtain ⟨A, hA, h⟩ := finiteHeckeL_zeroFreeRegion
+    obtain ⟨B, hB, hB'⟩ := h F (1 : U[F])
+    refine hB' Z hZ hS w ?_
+    have hlog : 0 < Real.log (B * (|w.im| + 3)) :=
+      Real.log_pos (by nlinarith [abs_nonneg w.im])
+    have h0 : 0 ≤ A / ((Module.finrank ℚ F : ℝ) ^ 4 * Real.log (B * (|w.im| + 3))) :=
+      div_nonneg hA.le (mul_nonneg (by positivity) hlog.le)
+    linarith
+  · rw [← hord w hw]
+    refine (han w ?_).meromorphicOrderAt_nonneg
+    simp only [mem_compl_iff, mem_insert_iff, mem_singleton_iff, not_or]
+    refine ⟨fun h ↦ ?_, hw1⟩
+    rw [h] at hw
+    simp at hw
+  · rw [← hord 1 (by norm_num)]
+    exact hp1
+
+/-- Off the pole, on and to the right of the 1-line, the Dedekind zeta continuation is
+analytic and nonzero. -/
+private theorem heckeLogDerivPolynomial_normTwist_analytic (Z : ℂ → ℂ) (hZ : MeromorphicNFOn Z univ)
+    (hSeries : ∀ s : halfPlane, Z s = dedekindZeta F s) (w : ℂ) (hw : 1 ≤ w.re) (hw1 : w ≠ 1) :
+    AnalyticAt ℂ Z w ∧ Z w ≠ 0 := by
+  obtain ⟨hle, hge, -⟩ := heckeLogDerivPolynomial_normTwist_zeta_orders Z hZ hSeries
+  have hord : meromorphicOrderAt Z w = 0 :=
+    le_antisymm (hle w hw) (hge w (by linarith) hw1)
+  have hNF := hZ (mem_univ w)
+  exact ⟨hNF.meromorphicOrderAt_nonneg_iff_analyticAt.mp hord.ge,
+    hNF.meromorphicOrderAt_eq_zero_iff.mp hord⟩
+
+/-- Near the pole at one, the logarithmic derivative of Dedekind zeta is `-1/(w - 1)` plus a
+function analytic at one. -/
+private theorem heckeLogDerivPolynomial_normTwist_pole (Z : ℂ → ℂ) (hZ : MeromorphicNFOn Z univ)
+    (hSeries : ∀ s : halfPlane, Z s = dedekindZeta F s) :
+    ∃ h : ℂ → ℂ, AnalyticAt ℂ h 1 ∧
+      ∀ᶠ w in 𝓝[≠] (1 : ℂ), logDeriv Z w = -(w - 1)⁻¹ + h w := by
+  obtain ⟨-, -, hp⟩ := heckeLogDerivPolynomial_normTwist_zeta_orders Z hZ hSeries
+  obtain ⟨g, hg, hg1, hev⟩ :=
+    (meromorphicOrderAt_eq_int_iff (hZ (mem_univ 1)).meromorphicAt).mp hp
+  refine ⟨logDeriv g, hg.deriv.div hg hg1, ?_⟩
+  have hgev : ∀ᶠ w in 𝓝 (1 : ℂ), AnalyticAt ℂ g w ∧ g w ≠ 0 :=
+    hg.eventually_analyticAt.and (hg.continuousAt.eventually_ne hg1)
+  have hloc : ∀ᶠ w in 𝓝[≠] (1 : ℂ), ∀ᶠ z in 𝓝 w, Z z = (z - 1) ^ (-1 : ℤ) • g z := by
+    rw [← eventually_eventually_nhdsWithin] at hev
+    filter_upwards [hev, self_mem_nhdsWithin] with w hw hw1
+    rwa [(isOpen_compl_singleton.nhdsWithin_eq hw1)] at hw
+  filter_upwards [hloc, nhdsWithin_le_nhds hgev, self_mem_nhdsWithin] with w hw hgw hw1
+  have hw1' : w - 1 ≠ 0 := sub_ne_zero.mpr hw1
+  have heq : Z =ᶠ[𝓝 w] fun z ↦ (z - 1) ^ (-1 : ℤ) * g z := by
+    filter_upwards [hw] with z hz
+    rw [hz, smul_eq_mul]
+  have hval : Z w = (w - 1) ^ (-1 : ℤ) * g w := by
+    rw [heq.eq_of_nhds]
+  rw [logDeriv_apply, heq.deriv_eq, hval]
+  have hdu : DifferentiableAt ℂ (fun z : ℂ ↦ (z - 1) ^ (-1 : ℤ)) w :=
+    ((differentiableAt_id.sub_const 1).zpow (Or.inl hw1'))
+  have hlm := logDeriv_mul (f := fun z : ℂ ↦ (z - 1) ^ (-1 : ℤ)) (g := g) w
+    (zpow_ne_zero _ hw1') hgw.2 hdu hgw.1.differentiableAt
+  rw [logDeriv_apply] at hlm
+  simp only [Pi.mul_def] at hlm
+  rw [show (fun z ↦ (z - 1) ^ (-1 : ℤ) * g z) = fun z ↦ (z - 1) ^ (-1 : ℤ) * g z from rfl, hlm,
+    logDeriv_fun_zpow (differentiableAt_id.sub_const 1), logDeriv_apply]
+  simp only [deriv_sub_const, deriv_id'']
+  push_cast
+  field_simp
+
+/-- Paper: Theorem B.7.1.2(1), Equation (B.7.1.8), p. 645. For the character
+`|·|^(-it₀)`, the cutoff polynomial on the 1-line is the negative shifted
+Dedekind zeta logarithmic derivative plus the oscillatory pole term and an
+analytic remainder. The remainder tends uniformly to zero on compact subsets
+away from the pole along `J_b`. -/
+theorem heckeLogDerivPolynomial_normTwist (χ : U[F]) (t₀ : ℝ)
+    (hχ : ideleClassNormTwist χ 0 = ideleClassNormTwist (1 : U[F]) (-Complex.I * t₀))
+    (Z : ℂ → ℂ) (hZ : MeromorphicNFOn Z univ)
+    (hSeries : ∀ s : halfPlane, Z s = dedekindZeta F s)
+    (K : Set ℂ) (hK : IsCompact K) (hKline : K ⊆ oneLine)
+    (hpole : (1 + Complex.I * t₀ : ℂ) ∉ K) {b : ℝ} (hb : 0 < b) :
+    ∃ error : ℝ → ℂ → ℂ,
+      (∀ x > 1, AnalyticOnNhd ℂ (error x) oneLine ∧
+        ∀ s ∈ oneLine, s ≠ 1 + Complex.I * t₀ →
+          heckeLogDerivPolynomial χ x s = -logDeriv Z (s - Complex.I * t₀) +
+            (x : ℂ) ^ (1 + Complex.I * t₀ - s) / (1 + Complex.I * t₀ - s) + error x s) ∧
+      TendstoUniformlyOn error (fun _ ↦ 0) (atTop ⊓ 𝓟 (perronCutoffSet b)) K := by
+  classical
+  obtain ⟨C, hC⟩ := heckeLogDerivPolynomial_at_pole_primeIdealTheorem (F := F)
+  have hC0 : 0 ≤ C := by
+    have h := hC 1 le_rfl
+    simp only [Real.log_one, add_zero, one_pow, div_one, mul_one] at h
+    exact (abs_nonneg _).trans h
+  set a : ℕ → ℝ := fun k ↦
+    ∑ᶠ I : {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = k}, idealVonMangoldt I.val with ha
+  have ha0 : a 0 = 0 := by
+    have : IsEmpty {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ I.absNorm = 0} :=
+      ⟨fun I ↦ I.property.1 (Ideal.absNorm_eq_zero_iff.mp I.property.2)⟩
+    simp only [ha, finsum_of_isEmpty]
+  obtain ⟨h, hh, hhev⟩ := heckeLogDerivPolynomial_normTwist_pole Z hZ hSeries
+  set p : ℂ := 1 + Complex.I * t₀ with hp
+  -- the cutoff polynomial
+  have hPsum : ∀ (x : ℝ) (s : ℂ), heckeLogDerivPolynomial χ x s =
+      ∑ k ∈ Finset.Icc 0 ⌊x⌋₊, (k : ℂ) ^ (-(s - Complex.I * t₀)) * (a k : ℂ) := by
+    intro x s
+    rw [heckeLogDerivPolynomial, Finset.Icc_eq_cons_Ioc (Nat.zero_le _), Finset.sum_cons, ha0,
+      Complex.ofReal_zero, mul_zero, zero_add, ← Finset.Icc_add_one_left_eq_Ioc, zero_add]
+    refine Finset.sum_congr rfl fun n hn ↦ ?_
+    have hn0 : n ≠ 0 := by have := (Finset.mem_Icc.mp hn).1; omega
+    have hn' : (n : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr hn0
+    have hpow : (n : ℂ) ^ s ≠ 0 := fun h ↦ hn' ((Complex.cpow_eq_zero_iff _ _).mp h).1
+    have hpow' : (n : ℂ) ^ (Complex.I * t₀) ≠ 0 :=
+      fun h ↦ hn' ((Complex.cpow_eq_zero_iff _ _).mp h).1
+    rw [LSeries.term_of_ne_zero hn0, heckeLogDerivPolynomial_normTwist_coeff χ t₀ hχ n,
+      Complex.cpow_neg,
+      Complex.cpow_sub _ _ hn']
+    field_simp
+    rfl
+  have hPdiff : ∀ x : ℝ, Differentiable ℂ (fun z ↦ heckeLogDerivPolynomial χ x z) := by
+    intro x
+    have : (fun z ↦ heckeLogDerivPolynomial χ x z) = fun z ↦ ∑ n ∈ Finset.Icc 1 ⌊x⌋₊,
+        heckeLogDerivCoefficient (ideleClassNormTwist χ 0) n / (n : ℂ) ^ z := by
+      funext z
+      refine Finset.sum_congr rfl fun n hn ↦ LSeries.term_of_ne_zero ?_ _ _
+      have := (Finset.mem_Icc.mp hn).1
+      omega
+    rw [this]
+    refine Differentiable.fun_sum fun n hn ↦ ?_
+    have hn' : (n : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr (by have := (Finset.mem_Icc.mp hn).1; omega)
+    exact (differentiable_const _).div (fun z ↦ differentiableAt_id.const_cpow (Or.inl hn'))
+      fun z h ↦ hn' ((Complex.cpow_eq_zero_iff _ _).mp h).1
+  -- the difference bound with the main term removed
+  have hdiff : ∀ s : ℂ, 1 < s.re → ∀ x y : ℝ, 1 ≤ x → x ≤ y →
+      ‖(heckeLogDerivPolynomial χ y s - (y : ℂ) ^ (p - s) / (p - s)) -
+        (heckeLogDerivPolynomial χ x s - (x : ℂ) ^ (p - s) / (p - s))‖ ≤
+        C * (2 + ‖s - Complex.I * t₀‖) / (1 + Real.log x) := by
+    intro s hs x y hx hxy
+    have hw : 1 < (s - Complex.I * t₀).re := by simpa using hs
+    have hfl : ⌊x⌋₊ ≤ ⌊y⌋₊ := Nat.floor_le_floor hxy
+    have hU : Finset.Icc 0 ⌊y⌋₊ = Finset.Icc 0 ⌊x⌋₊ ∪ Finset.Ioc ⌊x⌋₊ ⌊y⌋₊ := by
+      ext k
+      simp only [Finset.mem_union, Finset.mem_Icc, Finset.mem_Ioc]
+      omega
+    have hps : p - s = 1 - (s - Complex.I * t₀) := by rw [hp]; ring
+    rw [hPsum, hPsum, hU, Finset.sum_union (Finset.disjoint_left.2 fun k hk hk' ↦ by
+        simp only [Finset.mem_Icc, Finset.mem_Ioc] at hk hk'
+        omega), hps]
+    have := heckeLogDerivPolynomial_normTwist_tail a hC (s - Complex.I * t₀) hw hx hxy
+    convert this using 2
+    ring
+  -- for `Re s > 1` the polynomial converges to `-ζ_F'/ζ_F(s - i t₀)`
+  have hlim : ∀ s : ℂ, 1 < s.re → Tendsto (fun y : ℝ ↦ heckeLogDerivPolynomial χ y s) atTop
+      (𝓝 (-logDeriv Z (s - Complex.I * t₀))) := by
+    intro s hs
+    have h :=
+      (heckeLogDerivPolynomial_perron_error_hasSum χ t₀ hχ Z hZ hSeries s hs).tendsto_sum_nat
+    have hfl : Tendsto (fun y : ℝ ↦ ⌊y⌋₊ + 1) atTop atTop :=
+      (tendsto_add_atTop_nat 1).comp tendsto_nat_floor_atTop
+    refine (h.comp hfl).congr fun y ↦ ?_
+    simp only [Function.comp_apply]
+    rw [Finset.range_eq_Ico, Finset.sum_eq_sum_Ico_succ_bot (Nat.succ_pos _), LSeries.term_zero,
+      zero_add, heckeLogDerivPolynomial]
+    congr 1
+  have hpole0 : ∀ s : ℂ, 1 < s.re →
+      Tendsto (fun y : ℝ ↦ (y : ℂ) ^ (p - s) / (p - s)) atTop (𝓝 0) := by
+    intro s hs
+    have hre : (p - s).re = -(s.re - 1) := by rw [hp]; simp
+    rw [tendsto_zero_iff_norm_tendsto_zero]
+    have h1 : Tendsto (fun y : ℝ ↦ y ^ (-(s.re - 1)) / ‖p - s‖) atTop (𝓝 0) := by
+      simpa using (tendsto_rpow_neg_atTop (by linarith : 0 < s.re - 1)).div_const ‖p - s‖
+    refine h1.congr' ((eventually_gt_atTop 0).mono fun y hy ↦ ?_)
+    dsimp only
+    rw [norm_div, Complex.norm_cpow_eq_rpow_re_of_pos hy, hre]
+  have hgt : ∀ s : ℂ, 1 < s.re → ∀ x : ℝ, 1 ≤ x →
+      ‖heckeLogDerivPolynomial χ x s - (x : ℂ) ^ (p - s) / (p - s) +
+        logDeriv Z (s - Complex.I * t₀)‖ ≤
+        C * (2 + ‖s - Complex.I * t₀‖) / (1 + Real.log x) := by
+    intro s hs x hx
+    have ht := (((hlim s hs).sub (hpole0 s hs)).sub_const
+      (heckeLogDerivPolynomial χ x s - (x : ℂ) ^ (p - s) / (p - s))).norm
+    have h := le_of_tendsto ht ((eventually_ge_atTop x).mono fun y hy ↦ hdiff s hs x y hx hy)
+    rwa [show -logDeriv Z (s - Complex.I * t₀) - 0 -
+        (heckeLogDerivPolynomial χ x s - (x : ℂ) ^ (p - s) / (p - s)) =
+      -(heckeLogDerivPolynomial χ x s - (x : ℂ) ^ (p - s) / (p - s) +
+        logDeriv Z (s - Complex.I * t₀)) by ring, norm_neg] at h
+  -- the remainder off the pole, and its analyticity there
+  set D : ℝ → ℂ → ℂ := fun x z ↦ heckeLogDerivPolynomial χ x z -
+    (x : ℂ) ^ (p - z) / (p - z) + logDeriv Z (z - Complex.I * t₀) with hD
+  have hDan : ∀ x : ℝ, 1 ≤ x → ∀ s : ℂ, 1 ≤ s.re → s ≠ p → AnalyticAt ℂ (D x) s := by
+    intro x hx s hs hsp
+    have hw1 : s - Complex.I * t₀ ≠ 1 := fun h ↦ hsp (by rw [hp]; linear_combination h)
+    have hwre : 1 ≤ (s - Complex.I * t₀).re := by simpa using hs
+    obtain ⟨hZa, hZ0⟩ := heckeLogDerivPolynomial_normTwist_analytic Z hZ hSeries _ hwre hw1
+    have hlogan : AnalyticAt ℂ (logDeriv Z) (s - Complex.I * t₀) := hZa.deriv.div hZa hZ0
+    have hps : p - s ≠ 0 := sub_ne_zero.mpr (Ne.symm hsp)
+    have hx0 : (x : ℂ) ≠ 0 := by exact_mod_cast (by linarith : (0 : ℝ) < x).ne'
+    have hcp : Differentiable ℂ (fun z : ℂ ↦ (x : ℂ) ^ (p - z)) := fun z ↦
+      ((differentiableAt_const _).sub differentiableAt_id).const_cpow (Or.inl hx0)
+    refine (((hPdiff x).analyticAt s).sub ?_).add ?_
+    · exact (hcp.analyticAt s).div (by fun_prop) hps
+    · exact hlogan.comp (f := fun z : ℂ ↦ z - Complex.I * t₀) (by fun_prop)
+  have hbound : ∀ s : ℂ, 1 ≤ s.re → s ≠ p → ∀ x : ℝ, 1 ≤ x →
+      ‖D x s‖ ≤ C * (3 + ‖s - Complex.I * t₀‖) / (1 + Real.log x) := by
+    intro s hs hsp x hx
+    have hlx : 0 < 1 + Real.log x := by linarith [Real.log_nonneg hx]
+    rcases hs.lt_or_eq with hs' | hs'
+    · exact (hgt s hs' x hx).trans
+        (div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left (by linarith) hC0) hlx.le)
+    · have hDc : ContinuousAt (D x) s := (hDan x hx s hs hsp).continuousAt
+      have hpath : Tendsto (fun ε : ℝ ↦ s + (ε : ℂ)) (𝓝[>] 0) (𝓝 s) := by
+        have h : Tendsto (fun ε : ℝ ↦ s + (ε : ℂ)) (𝓝 0) (𝓝 (s + ((0 : ℝ) : ℂ))) :=
+          (continuous_const.add Complex.continuous_ofReal).tendsto 0
+        simpa using h.mono_left nhdsWithin_le_nhds
+      refine le_of_tendsto (hDc.tendsto.comp hpath).norm ?_
+      filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
+      have hre : 1 < (s + (ε : ℂ)).re := by
+        rw [Complex.add_re, Complex.ofReal_re]
+        linarith [hε.1]
+      have hn : ‖s + (ε : ℂ) - Complex.I * t₀‖ ≤ ‖s - Complex.I * t₀‖ + 1 := by
+        rw [show s + (ε : ℂ) - Complex.I * t₀ = (s - Complex.I * t₀) + ε by ring]
+        refine (norm_add_le _ _).trans ?_
+        rw [Complex.norm_real, Real.norm_eq_abs, abs_of_pos hε.1]
+        linarith [hε.2]
+      refine (hgt _ hre x hx).trans ?_
+      exact div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left (by linarith) hC0) hlx.le
+  -- at the pole: a removable singularity
+  set G : ℝ → ℂ → ℂ := fun x z ↦ heckeLogDerivPolynomial χ x z + h (z - Complex.I * t₀) +
+    dslope (fun v : ℂ ↦ (x : ℂ) ^ (-v)) 0 (z - p) with hG
+  have hGan : ∀ x : ℝ, 1 ≤ x → AnalyticAt ℂ (G x) p := by
+    intro x hx
+    have hx0 : (x : ℂ) ≠ 0 := by exact_mod_cast (by linarith : (0 : ℝ) < x).ne'
+    have hcp : Differentiable ℂ (fun v : ℂ ↦ (x : ℂ) ^ (-v)) := fun v ↦
+      differentiableAt_id.neg.const_cpow (Or.inl hx0)
+    have hh' : AnalyticAt ℂ h (p - Complex.I * t₀) := by
+      rw [show p - Complex.I * t₀ = 1 by rw [hp]; ring]; exact hh
+    have hds : AnalyticAt ℂ (dslope (fun v : ℂ ↦ (x : ℂ) ^ (-v)) 0) (p - p) := by
+      rw [sub_self]
+      exact (hcp.analyticAt 0).dslope 0
+    exact (((hPdiff x).analyticAt p).add
+      (hh'.comp (f := fun z : ℂ ↦ z - Complex.I * t₀) (by fun_prop))).add
+      (hds.comp (f := fun z : ℂ ↦ z - p) (by fun_prop))
+  have hGD : ∀ x : ℝ, 1 ≤ x → ∀ᶠ z in 𝓝[≠] p, D x z = G x z := by
+    intro x hx
+    have htr : Tendsto (fun z : ℂ ↦ z - Complex.I * t₀) (𝓝[≠] p) (𝓝[≠] (1 : ℂ)) := by
+      refine tendsto_nhdsWithin_iff.mpr ⟨?_, ?_⟩
+      · have h1 : Tendsto (fun z : ℂ ↦ z - Complex.I * t₀) (𝓝 p) (𝓝 (p - Complex.I * t₀)) :=
+          (continuous_id.sub continuous_const).tendsto p
+        rw [show p - Complex.I * t₀ = 1 by rw [hp]; ring] at h1
+        exact h1.mono_left nhdsWithin_le_nhds
+      · filter_upwards [self_mem_nhdsWithin] with z hz
+        intro h1
+        exact hz (Set.mem_singleton_iff.mpr (by
+          rw [hp]; linear_combination Set.mem_singleton_iff.mp h1))
+    filter_upwards [htr.eventually hhev, self_mem_nhdsWithin] with z hz hzp
+    have hzp' : z - p ≠ 0 := sub_ne_zero.mpr hzp
+    have hw : z - Complex.I * t₀ - 1 = z - p := by rw [hp]; ring
+    simp only [hD, hG]
+    rw [hz, dslope_of_ne _ hzp', slope_def_field, hw, sub_zero, neg_zero, Complex.cpow_zero,
+      show p - z = -(z - p) by ring]
+    field_simp
+    ring
+  refine ⟨fun x z ↦ if z = p then G x z else D x z,
+    fun x hx ↦ ⟨fun s hs ↦ ?_, fun s _ hsp ↦ ?_⟩, ?_⟩
+  · have hs1 : s.re = 1 := hs
+    by_cases hsp : s = p
+    · rw [hsp]
+      refine (hGan x hx.le).congr ?_
+      have hev := (hGD x hx.le)
+      rw [eventually_nhdsWithin_iff] at hev
+      filter_upwards [hev] with z hz
+      by_cases hzp : z = p
+      · simp only [hzp, ite_true]
+      · simp only [hzp, ite_false]
+        exact (hz hzp).symm
+    · refine (hDan x hx.le s hs1.ge hsp).congr ?_
+      filter_upwards [isOpen_compl_singleton.mem_nhds hsp] with z hz
+      have hz' : z ≠ p := hz
+      simp only [hz', ite_false]
+  · simp only [hsp, ite_false, hD]
+    ring
+  · obtain ⟨R, hR⟩ := hK.isBounded.exists_norm_le
+    rw [Metric.tendstoUniformlyOn_iff]
+    intro ε hε
+    have hlim0 : Tendsto (fun x : ℝ ↦ C * (3 + (R + |t₀|)) / (1 + Real.log x)) atTop (𝓝 0) :=
+      tendsto_const_nhds.div_atTop
+        (tendsto_atTop_add_const_left _ 1 Real.tendsto_log_atTop)
+    have hev := (hlim0.eventually (gt_mem_nhds hε)).and (eventually_ge_atTop (1 : ℝ))
+    refine (hev.filter_mono inf_le_left).mono fun x hx s hsK ↦ ?_
+    obtain ⟨hxε, hx1⟩ := hx
+    have hs1 : s.re = 1 := hKline hsK
+    have hsp : s ≠ p := fun h' ↦ hpole (h' ▸ hsK)
+    have hlx : 0 < 1 + Real.log x := by linarith [Real.log_nonneg hx1]
+    have hnw : ‖s - Complex.I * t₀‖ ≤ R + |t₀| := by
+      refine (norm_sub_le _ _).trans (add_le_add (hR s hsK) ?_)
+      rw [norm_mul, Complex.norm_I, one_mul, Complex.norm_real, Real.norm_eq_abs]
+    rw [dist_zero_left]
+    simp only [hsp, ite_false]
+    calc ‖D x s‖ ≤ C * (3 + ‖s - Complex.I * t₀‖) / (1 + Real.log x) :=
+          hbound s hs1.ge hsp x hx1
+      _ ≤ C * (3 + (R + |t₀|)) / (1 + Real.log x) :=
+          div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left (by linarith) hC0) hlx.le
+      _ < ε := hxε
 
 private theorem heckeLogDerivPolynomial_perron_error_idealVonMangoldt_nonneg
     (I : Ideal (𝓞 F)) : 0 ≤ idealVonMangoldt I := by
