@@ -4206,7 +4206,7 @@ theorem pontryaginDual_restriction_isBruhatSmooth (χ : PontryaginDual G)
 
 omit hTop hT2 hLC in
 /-- Point evaluations separate Schwartz–Bruhat functions for every group. -/
-private theorem schwartzBruhat_t2_of_stages : T2Space (SchwartzBruhat G) := by
+theorem schwartzBruhat_t2_of_stages : T2Space (SchwartzBruhat G) := by
   refine T2Space.of_injective_continuous (f := fun f : SchwartzBruhat G ↦ f.val)
     (fun _ _ h ↦ Subtype.ext h) (continuous_pi fun x ↦ ?_)
   let ev : SchwartzBruhat G →ₗ[ℂ] ℂ :=
