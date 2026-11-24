@@ -11,6 +11,7 @@ import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 import Mathlib.NumberTheory.MulChar.Duality
 import Mathlib.RingTheory.RootsOfUnity.AlgebraicallyClosed
 import Mathlib.NumberTheory.DirichletCharacter.Bounds
+import Mathlib.RingTheory.RootsOfUnity.AlgebraicallyClosed
 
 /-! # §11.2.0 assertions that are false as printed -/
 
